@@ -113,6 +113,10 @@ switch (deviceType) {
                 const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);
                 const state = (msg.payload === "ON") ? "ON" : "OFF";
 
+                // 記錄狀態到 flow context
+                const stateKey = `${subType}_${moduleId}_${channel}_state`;
+                flow.set(stateKey, state);
+
                 // 推入 modbus_queue 統一管理發送
                 let modbus_queue = global.get("modbus_queue") || [];
                 modbus_queue.push({ payload: generalCommandBuild(frame) });
@@ -131,6 +135,10 @@ switch (deviceType) {
             case "single": {
                 // 狀態 ON 或 OFF
                 let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
+
+                // 記錄狀態到 flow context
+                const stateKey = `${subType}_${moduleId}_${channel}_state`;
+                flow.set(stateKey, state);
 
                 let brightness = getBrightness(subType, moduleId, channel, state);
                 // 取得對應寄存器
@@ -167,6 +175,11 @@ switch (deviceType) {
                 if (!regs) return null;
 
                 let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
+
+                // 記錄狀態到 flow context
+                const stateKey = `${subType}_${moduleId}_${channel}_state`;
+                flow.set(stateKey, state);
+
                 const brKey = `${subType}_${moduleId}_${channel}_brightness`;
                 const ctKey = `${subType}_${moduleId}_${channel}_colortemp`;
 
@@ -218,9 +231,19 @@ switch (deviceType) {
                     case "single": {
                         let lights = (parts[4]).split("--");
                         let groupBrightness = flow.get(`${subType}_${parts[3]}_${parts[4]}_brightness`);
+                        const state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
+
                         for (let i = 0; i < lights.length; i++) {
                             let lightId = lights[i].split("-")[0];
                             let lightChannel = lights[i].split("-")[1];
+
+                            // 更新 flow context 狀態
+                            const stateKey = `${parts[3]}_${lightId}_${lightChannel}_state`;
+                            flow.set(stateKey, state);
+                            if (state === "ON" && groupBrightness !== undefined) {
+                                const brightnessKey = `${parts[3]}_${lightId}_${lightChannel}_brightness`;
+                                flow.set(brightnessKey, groupBrightness);
+                            }
 
                             // 更新實際設備狀態
                             let stateMsg = { ...msg };
@@ -283,10 +306,25 @@ switch (deviceType) {
                         let lights = (parts[4]).split("--");
                         let groupBrightness = flow.get(`${subType}_${parts[3]}_${parts[4]}_brightness`);
                         let groupColortemp = flow.get(`${subType}_${parts[3]}_${parts[4]}_colortemp`);
+                        const state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
 
                         for (let i = 0; i < lights.length; i++) {
                             let lightId = lights[i].split("-")[0];
                             let lightChannel = lights[i].split("-")[1];
+
+                            // 更新 flow context 狀態
+                            const stateKey = `${parts[3]}_${lightId}_${lightChannel}_state`;
+                            flow.set(stateKey, state);
+                            if (state === "ON") {
+                                if (groupBrightness !== undefined) {
+                                    const brightnessKey = `${parts[3]}_${lightId}_${lightChannel}_brightness`;
+                                    flow.set(brightnessKey, groupBrightness);
+                                }
+                                if (groupColortemp !== undefined) {
+                                    const colortempKey = `${parts[3]}_${lightId}_${lightChannel}_colortemp`;
+                                    flow.set(colortempKey, groupColortemp);
+                                }
+                            }
 
                             // 更新實際設備狀態
                             let stateMsg = { ...msg };
@@ -463,9 +501,54 @@ switch (deviceType) {
         const action = parts[4];       // save
 
         if (action === "save") {
-            // 儲存到 global context
             const memoryKey = `homeassistant/memory/${sceneId}/${operation}`;
-            const memoryData = JSON.parse(msg.payload);
+
+            // payload 可能已經是 object 或是 string
+            const requestData = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+
+            // 讀取每個設備的當前狀態
+            const devicesWithState = [];
+            node.warn(`=== 開始記憶儲存 ${memoryKey} ===`);
+
+            for (const deviceTopic of requestData.devices) {
+                // deviceTopic 格式: homeassistant/light/single/13/1
+                const deviceParts = deviceTopic.split("/");
+                const subType = deviceParts[2];  // single, dual
+                const moduleId = deviceParts[3];
+                const channel = deviceParts[4];
+
+                // 讀取 flow context 中的狀態
+                const stateKey = `${subType}_${moduleId}_${channel}_state`;
+                const brightnessKey = `${subType}_${moduleId}_${channel}_brightness`;
+                const colortempKey = `${subType}_${moduleId}_${channel}_colortemp`;
+
+                const state = flow.get(stateKey) || "OFF";
+                const brightness = flow.get(brightnessKey) || DEFAULT_BRIGHTNESS;
+
+                node.warn(`  讀取 ${moduleId}-${channel}: state=${state}, brightness=${brightness}`);
+
+                const deviceState = {
+                    topic: deviceTopic,
+                    state: state,
+                    brightness: brightness
+                };
+
+                // 如果是 dual 類型，還要記錄色溫
+                if (subType === "dual") {
+                    const colortemp = flow.get(colortempKey) || DEFAULT_COLORTEMP;
+                    deviceState.colortemp = colortemp;
+                    node.warn(`    色溫=${colortemp}`);
+                }
+
+                devicesWithState.push(deviceState);
+            }
+
+            // 儲存包含實際狀態的資料
+            const memoryData = {
+                scene_name: requestData.scene_name,
+                devices: devicesWithState,
+                timestamp: new Date().toISOString()
+            };
 
             global.set(memoryKey, memoryData);
 
@@ -473,11 +556,15 @@ switch (deviceType) {
             let mqtt_queue = global.get("mqtt_queue") || [];
             mqtt_queue.push({
                 topic: `homeassistant/memory/${sceneId}/${operation}/saved`,
-                payload: JSON.stringify({ status: "saved", timestamp: new Date().toISOString() })
+                payload: JSON.stringify({
+                    status: "saved",
+                    timestamp: memoryData.timestamp,
+                    device_count: devicesWithState.length
+                })
             });
             global.set("mqtt_queue", mqtt_queue);
 
-            node.warn(`記憶已儲存: ${memoryKey}`);
+            node.warn(`記憶已儲存: ${memoryKey} (${devicesWithState.length}個設備)`);
         }
         return null;
     }
@@ -498,16 +585,40 @@ switch (deviceType) {
 
         if (memoryData && memoryData.devices) {
             // 使用記憶資料執行場景
-            node.warn(`執行記憶場景: ${memoryKey}`);
+            node.warn(`=== 執行記憶場景: ${memoryKey} (${memoryData.devices.length}個設備) ===`);
+            node.warn(`  記憶時間: ${memoryData.timestamp}`);
 
-            // 從 memoryData 解析並發送到 mqtt_queue
-            // 這裡需要根據儲存的格式來解析
-            // 假設 memoryData.devices 是設備列表
-            for (const deviceTopic of memoryData.devices) {
-                // 發送場景觸發到各設備
+            // 恢復每個設備的記憶狀態
+            for (const device of memoryData.devices) {
+                const deviceTopic = device.topic;
+                const deviceParts = deviceTopic.split("/");
+                const subType = deviceParts[2];  // single, dual
+                const moduleId = deviceParts[3];
+                const channel = deviceParts[4];
+
+                node.warn(`  恢復 ${moduleId}-${channel}: state=${device.state}, brightness=${device.brightness}`);
+
+                // 根據記憶的狀態設定亮度
+                if (device.state === "ON" && device.brightness !== undefined) {
+                    mqtt_queue.push({
+                        topic: `${deviceTopic}/set/brightness`,
+                        payload: device.brightness
+                    });
+                }
+
+                // 如果是 dual 類型且有色溫資料
+                if (subType === "dual" && device.colortemp !== undefined) {
+                    mqtt_queue.push({
+                        topic: `${deviceTopic}/set/colortemp`,
+                        payload: device.colortemp
+                    });
+                    node.warn(`    色溫=${device.colortemp}`);
+                }
+
+                // 發送開關狀態
                 mqtt_queue.push({
                     topic: `${deviceTopic}/set`,
-                    payload: "ON"
+                    payload: device.state
                 });
             }
         } else {

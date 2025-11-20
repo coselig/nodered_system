@@ -29,40 +29,6 @@ const HMI_project = [
 
 // 動態 pattern 可解析變數值
 const HMI_pattern = [
-    // H70測試按鈕指令 將測試指令轉換為實際場景指令
-    {
-        name: "h70_test_command",
-        pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
-        parse: (input) => {
-            const operation = input[4];  // 0x01=ON 或 0x02=OFF
-            const sceneId = input[5];    // 0x02=會議室, 0x03=公共區, 0x04=戶外, 0x05=H40二樓
-
-            const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
-            const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
-
-            // 場景名稱對照
-            const sceneNames = {
-                "0x02": "會議室",
-                "0x03": "公共區",
-                "0x04": "戶外燈",
-                "0x05": "H40二樓"
-            };
-            const opNames = {
-                "0x01": "ON",
-                "0x02": "OFF"
-            };
-
-            const sceneName = sceneNames[sceneKey] || `未知場景${sceneKey}`;
-            const opName = opNames[opKey] || `未知操作${opKey}`;
-
-            node.warn(`H70測試按鈕: ${sceneName} ${opName} (${sceneKey}/${opKey})`);
-
-            return [{
-                topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
-                payload: "ON"
-            }];
-        }
-    },
     // 窗簾控制 動態解析
     {
         name: "curtain_control",
@@ -127,29 +93,35 @@ const HMI_pattern = [
             return [{ topic: config.topic + topicSuffix, payload: payload }];
         }
     },
-    // 場景記憶指令 儲存當前燈光狀態
+    // 場景控制統一處理 包含記憶、測試按鈕和一般場景
     {
-        name: "scene_memory",
+        name: "scene_unified",
         pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
         parse: (input) => {
-            const operation = input[4];  // 0x81-0x88 記憶操作
-            const sceneId = input[5];    // 0x01 測試 0x02 會議室 0x03 公共區 0xff 全部
+            const operation = input[4];  // 操作碼
+            const sceneId = input[5];    // 場景ID
 
-            // 只處理記憶指令 0x81 到 0x88 其他操作碼交給 scene_control 處理
-            if (operation < 0x81 || operation > 0x88) {
-                return null;
-            }
+            // === 記憶指令處理 0x81 到 0x88 ===
+            if (operation >= 0x81 && operation <= 0x88) {
 
-            const SCENE_MEMORY_MAP = {
-                "0x01": {
-                    name: "測試", devices: [
-                        "homeassistant/light/single/13/1",
-                        "homeassistant/light/single/13/2",
-                        "homeassistant/light/single/13/3",
-                        "homeassistant/light/dual/14/a",
-                        "homeassistant/light/dual/14/b"
-                    ]
-                },
+                // 記憶按鈕對應表：記憶按鈕 1-8 對應測試按鈕 1-8
+                // 注意：不依賴 input[5] 因為 HMI 可能發送錯誤的 sceneId
+                // 記憶1(0x81) → 測試1(0x02/0x01), 記憶2(0x82) → 測試2(0x02/0x02)
+                // 記憶3(0x83) → 測試3(0x03/0x01), 記憶4(0x84) → 測試4(0x03/0x02)
+                // 記憶5(0x85) → 測試5(0x04/0x01), 記憶6(0x86) → 測試6(0x04/0x02)
+                // 記憶7(0x87) → 測試7(0x05/0x01), 記憶8(0x88) → 測試8(0x05/0x02)
+                const MEMORY_TO_TEST_MAP = {
+                    0x81: { sceneId: "0x02", operation: "0x01" },  // 記憶1 → 測試1 會議室ON
+                    0x82: { sceneId: "0x02", operation: "0x02" },  // 記憶2 → 測試2 會議室OFF
+                    0x83: { sceneId: "0x03", operation: "0x01" },  // 記憶3 → 測試3 公共區ON
+                    0x84: { sceneId: "0x03", operation: "0x02" },  // 記憶4 → 測試4 公共區OFF
+                    0x85: { sceneId: "0x04", operation: "0x01" },  // 記憶5 → 測試5 戶外ON
+                    0x86: { sceneId: "0x04", operation: "0x02" },  // 記憶6 → 測試6 戶外OFF
+                    0x87: { sceneId: "0x05", operation: "0x01" },  // 記憶7 → 測試7 H40 S1
+                    0x88: { sceneId: "0x05", operation: "0x02" }   // 記憶8 → 測試8 H40 S2
+                };
+
+                const SCENE_MEMORY_MAP = {
                 "0x02": {
                     name: "會議室", devices: [
                         "homeassistant/light/single/13/1",
@@ -169,49 +141,61 @@ const HMI_pattern = [
                         "homeassistant/light/single/12/4"
                     ]
                 },
-                "0xff": {
-                    name: "全部", devices: [
-                        "homeassistant/light/single/11/1",
-                        "homeassistant/light/single/11/2",
-                        "homeassistant/light/single/12/1",
-                        "homeassistant/light/single/12/2",
-                        "homeassistant/light/single/12/3",
-                        "homeassistant/light/single/12/4",
-                        "homeassistant/light/single/13/1",
-                        "homeassistant/light/single/13/2",
-                        "homeassistant/light/single/13/3",
-                        "homeassistant/light/dual/14/a",
-                        "homeassistant/light/dual/14/b"
+                "0x04": {
+                    name: "戶外", devices: [
+                        "homeassistant/light/single/18/1",
+                        "homeassistant/light/single/18/2",
+                        "homeassistant/light/single/19/1",
+                        "homeassistant/light/single/19/2"
+                    ]
+                },
+                "0x05": {
+                    name: "H40二樓", devices: [
+                        "homeassistant/light/single/15/1",
+                        "homeassistant/light/single/15/2",
+                        "homeassistant/light/single/16/1",
+                        "homeassistant/light/single/16/2",
+                        "homeassistant/light/single/17/1",
+                        "homeassistant/light/single/17/2",
+                        "homeassistant/light/single/18/1",
+                        "homeassistant/light/single/18/2",
+                        "homeassistant/light/single/19/1",
+                        "homeassistant/light/single/19/2"
                     ]
                 }
             };
 
-            const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
-            const opKey = `0x${(operation - 0x80).toString(16).padStart(2, '0').toUpperCase()}`; // 0x81 轉 0x01 0x82 轉 0x02
-            const sceneInfo = SCENE_MEMORY_MAP[sceneKey];
+                // 使用記憶按鈕到測試按鈕的對應表 直接用數字作為 key
+                const mapping = MEMORY_TO_TEST_MAP[operation];
 
-            if (!sceneInfo) return null;
+                if (!mapping) {
+                    node.warn(`未知的記憶按鈕: 0x${operation.toString(16).padStart(2, '0').toUpperCase()}`);
+                    return null;
+                }
+
+                // 獲取對應的場景和操作
+                const targetSceneId = mapping.sceneId;
+                const targetOperation = mapping.operation;
+                const sceneInfo = SCENE_MEMORY_MAP[targetSceneId]; if (!sceneInfo) {
+                    node.warn(`未找到場景配置: ${targetSceneId}`);
+                    return null;
+                }
 
             // 記憶操作名稱對照
             const opNames = {
                 "0x01": "ON",
-                "0x02": "OFF",
-                "0x03": "場景1",
-                "0x04": "場景2",
-                "0x05": "場景3",
-                "0x06": "場景4",
-                "0x07": "場景5",
-                "0x08": "場景6"
+                "0x02": "OFF"
             };
 
-            const opName = opNames[opKey] || `操作${opKey}`;
+                const opName = opNames[targetOperation] || targetOperation;
 
             // 發送記憶儲存請求到 MQTT 主題
             // 格式 homeassistant/memory/sceneId/operation/save/set
             // 實際儲存處理由 general command 的 global.set 完成
-            const memoryTopic = `homeassistant/memory/${sceneKey}/${opKey}/save/set`;
+                const memoryTopic = `homeassistant/memory/${targetSceneId}/${targetOperation}/save/set`;
 
-            node.warn(`場景記憶: ${sceneInfo.name}_${opName} (${sceneKey}/${opKey})`);
+                const buttonNum = operation - 0x80; // 計算按鈕編號 1-8
+                node.warn(`記憶按鈕${buttonNum} → 測試按鈕: ${sceneInfo.name}_${opName} (${targetSceneId}/${targetOperation})`);
 
             return [{
                 topic: memoryTopic,
@@ -222,21 +206,39 @@ const HMI_pattern = [
                     command: bufferToHexArray(input)
                 })
             }];
-        }
-    },
-    // 場景控制 動態解析
-    {
-        name: "scene_control",
-        pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
-        parse: (input) => {
-            const operation = input[4];  // 0x01 ON 0x02 OFF 0x03 場景1 0x04 場景2
-            const sceneId = input[5];    // 0x02 會議室 0x03 公共區 0xff 全部
-
-            // 記憶指令 0x81 到 0x84 由 scene_memory 處理
-            if (operation >= 0x81 && operation <= 0x84) {
-                return null;
             }
 
+            // === H70測試按鈕處理 0x01-0x02 配合特定場景ID ===
+            // 檢查是否為測試按鈕場景 (會議室0x02, 公共區0x03, 戶外0x04, H40二樓0x05)
+            const testSceneIds = [0x02, 0x03, 0x04, 0x05];
+            if ((operation === 0x01 || operation === 0x02) && testSceneIds.includes(sceneId)) {
+                const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
+                const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
+
+                // 場景名稱對照
+                const sceneNames = {
+                    "0x02": "會議室",
+                    "0x03": "公共區",
+                    "0x04": "戶外燈",
+                    "0x05": "H40二樓"
+                };
+                const opNames = {
+                    "0x01": "ON",
+                    "0x02": "OFF"
+                };
+
+                const sceneName = sceneNames[sceneKey] || `未知場景${sceneKey}`;
+                const opName = opNames[opKey] || `未知操作${opKey}`;
+
+                node.warn(`H70測試按鈕: ${sceneName} ${opName} (${sceneKey}/${opKey})`);
+
+                return [{
+                    topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
+                    payload: "ON"
+                }];
+            }
+
+            // === 一般場景控制 ===
             // 轉換為 MQTT 主題 實際場景執行由 general_command 處理
             const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;
             const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
