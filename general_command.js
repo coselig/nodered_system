@@ -48,8 +48,8 @@ function clamp(value, min, max) {
     return value < min ? min : value > max ? max : value;
 }
 
-function getBrightness(device_sub_type, id, chanel, state) {
-    let brightness = flow.get(`${device_sub_type}_${id}_${chanel}_brightness`);
+function getBrightness(subType, moduleId, channel, state) {
+    let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);
     if (typeof brightness !== "number") brightness = DEFAULT_BRIGHTNESS;
     // 限制亮度範圍
     brightness = (state === "ON") ? clamp(Math.round(brightness), 0, 100) : 0x00;
@@ -58,13 +58,14 @@ function getBrightness(device_sub_type, id, chanel, state) {
 
 // ===================== 主流程 =====================
 const parts = String(msg.topic || "").split("/");
-const device_type = parts[1];
-const device_sub_type = parts[2];// 光的類型 single, dual, relay
-const id = parseInt(parts[3]);// 模組id
-const chanel = parts[4];//通道 id
-switch (device_type) {
+const deviceType = parts[1];     // light, cover, hvac, memory, scene, query
+switch (deviceType) {
     case "light": {
-        switch (device_sub_type) {
+        const subType = parts[2];      // single, dual, relay, scene
+        const moduleId = parseInt(parts[3]);  // 模組 ID
+        const channel = parts[4];      // 通道 ID
+
+        switch (subType) {
             case "relay": {
                 const CHANNEL_COIL_MAP = {
                     "1": 0x0000,
@@ -72,7 +73,7 @@ switch (device_type) {
                     "3": 0x0002,
                     "4": 0x0003,
                 };
-                const addr = CHANNEL_COIL_MAP[chanel];
+                const addr = CHANNEL_COIL_MAP[channel];
                 if (addr === undefined) return null;
 
                 // Coil 寫入值 (ON = 0xFF00, OFF = 0x0000)
@@ -84,7 +85,7 @@ switch (device_type) {
                 const lo = addr & 0xFF;
 
                 // 組 Modbus 指令 (0x05 = Write Single Coil)
-                const frame = Buffer.from([id, 0x05, hi, lo, valHi, valLo]);
+                const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);
 
                 msg.payload = generalCommandBuild(frame);
                 node.send(msg);
@@ -94,26 +95,26 @@ switch (device_type) {
                 // 狀態 (ON / OFF)
                 let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
 
-                let brightness = getBrightness(device_sub_type, id, chanel, state);
+                let brightness = getBrightness(subType, moduleId, channel, state);
                 // 取得對應寄存器
-                const reg = CHANNEL_REGISTER_MAP[chanel];
+                const reg = CHANNEL_REGISTER_MAP[channel];
                 if (!reg) return null;
                 // 高低位元組
                 const hi = (reg >> 8) & 0xFF;
                 const lo = reg & 0xFF;
                 // 組 Modbus 指令
-                const cmd = Buffer.from([id, 0x06, hi, lo, BRIGHTNESS_TIME, brightness]);
+                const cmd = Buffer.from([moduleId, 0x06, hi, lo, BRIGHTNESS_TIME, brightness]);
                 msg.payload = generalCommandBuild(cmd);
                 node.send(msg);
                 return null;
             }
             case "dual": {
-                const regs = CHANNEL_REGISTER_MAP[chanel];
+                const regs = CHANNEL_REGISTER_MAP[channel];
                 if (!regs) return null;
 
                 let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
-                const brKey = `${device_sub_type}_${id}_${chanel}_brightness`;
-                const ctKey = `${device_sub_type}_${id}_${chanel}_colortemp`;
+                const brKey = `${subType}_${moduleId}_${channel}_brightness`;
+                const ctKey = `${subType}_${moduleId}_${channel}_colortemp`;
 
                 let brightness = flow.get(brKey);
                 if (typeof brightness !== "number") brightness = DEFAULT_BRIGHTNESS;
@@ -123,15 +124,15 @@ switch (device_type) {
                 if (typeof colortemp !== "number") colortemp = DEFAULT_COLORTEMP;
                 colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);
                 const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);
-                function buildCommand(id, reg, value, speed = 0x05) {
+                function buildCommand(moduleId, reg, value, speed = 0x05) {
                     const hi = (reg >> 8) & 0xFF;
                     const lo = reg & 0xFF;
-                    const cmd = Buffer.from([id, 0x06, hi, lo, speed, value]);
+                    const cmd = Buffer.from([moduleId, 0x06, hi, lo, speed, value]);
                     return generalCommandBuild(cmd);
                 }
                 const brValue = (state === "ON") ? brightness : 0;
-                const cmdBrightness = buildCommand(id, regs[0], brValue);
-                const cmdColortemp = buildCommand(id, regs[1], ctPercent);
+                const cmdBrightness = buildCommand(moduleId, regs[0], brValue);
+                const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);
                 node.send({ payload: cmdBrightness });
                 node.send({ payload: cmdColortemp });
 
@@ -145,7 +146,7 @@ switch (device_type) {
                 switch (parts[3]) {
                     case "single": {
                         let lights = (parts[4]).split("--");
-                        let groupBrightness = flow.get(`${device_sub_type}_${parts[3]}_${parts[4]}_brightness`);
+                        let groupBrightness = flow.get(`${subType}_${parts[3]}_${parts[4]}_brightness`);
                         for (let i = 0; i < lights.length; i++) {
                             let light_id = lights[i].split("-")[0];
                             let light_chanel = lights[i].split("-")[1];
@@ -177,24 +178,15 @@ switch (device_type) {
                 }
             }
             default: {
-                `unknown device:${device_sub_type}`
+                node.warn(`unknown light subtype: ${subType}`);
                 return null;
             }
         }
     }
     case "cover": {
-        /*
-        格式:
-        要開的_要開的/要關的_要關的_要關的
-        */
-        // let mqtt_queue = global.get("mqtt_queue");
-
-        // function sendState(id, chanel, state) {
-        //     mqtt_queue.push({
-        //         topic: `homeassistant/light/relay/${id}/${chanel}/state`,
-        //         payload: state
-        //     });
-        // }
+        // 格式: 要開的_要開的/要關的_要關的_要關的
+        // payload 範例: "1_2/3" 表示開啟 relay 1 和 2，關閉 relay 3
+        const moduleId = parseInt(parts[3]);  // 模組 ID
 
         let relays = msg.payload.split("/");
         let on_relays = relays[0] ? relays[0].split("_").map(Number) : [];
@@ -212,15 +204,15 @@ switch (device_type) {
         for (let relay of off_relays) {
             output &= ~(1 << (relay - 1)); // relay 2 -> bit 1 置0
         }
-        const frame = Buffer.from([id, 0x06, 0x01, 0x9b, 0x10, output]);
+        const frame = Buffer.from([moduleId, 0x06, 0x01, 0x9b, 0x10, output]);
         msg.payload = generalCommandBuild(frame);
         node.send(msg);
         return null;
     }
     case "hvac": {
-        const s200_id = parseInt(parts[2]);
-        const hvacAction = parts[4];
-        const id = parseInt(parts[3]);  // 裝置的 modbus id
+        const s200Id = parseInt(parts[2]);      // S200 模組 ID
+        const hvacId = parseInt(parts[3]);      // HVAC 設備 ID (1, 2, 3)
+        const hvacAction = parts[4];            // mode, fan, temperature
         const payload = msg.payload;
 
         const baseAddress = 0x100;
@@ -245,17 +237,17 @@ switch (device_type) {
 
         switch (hvacAction) {
             case "mode":
-                register = baseAddress + id * 8 + 1;
+                register = baseAddress + hvacId * 8 + 1;
                 value = modeMap[payload];
                 break;
 
             case "fan":
-                register = baseAddress + id * 8 + 2;
+                register = baseAddress + hvacId * 8 + 2;
                 value = fanModeMap[payload];
                 break;
 
             case "temperature":
-                register = baseAddress + id * 8 + 3;
+                register = baseAddress + hvacId * 8 + 3;
                 value = parseFloat(payload);
                 break;
 
@@ -272,9 +264,9 @@ switch (device_type) {
         const regHi = (register >> 8) & 0xFF;
         const regLo = register & 0xFF;
 
-        // id, 0x06, regHi, regLo, speed, value
+        // s200Id, 0x06, regHi, regLo, speed, value
         const frame = Buffer.from([
-            s200_id,
+            s200Id,
             0x06,
             regHi,
             regLo,
@@ -376,15 +368,19 @@ switch (device_type) {
         return null;
     }
     case "query": {
-        node.warn(`received topic:${msg.topic}`);
+        const subType = parts[2];      // light, cover
+        const moduleId = parseInt(parts[3]);  // 模組 ID
+        const channel = parts[4];      // 通道 ID
+
+        node.warn(`received query topic: ${msg.topic}`);
         let frame;
-        switch (device_sub_type) {
+        switch (subType) {
             case "light": {
-                node.warn(`in light:${msg.topic}`);
+                node.warn(`query light: ${msg.topic}`);
                 // light 讀取線圈/亮度狀態
                 const CHANNEL_COIL_MAP = { "1": 0x0000, "2": 0x0001, "3": 0x0002, "4": 0x0003 };
-                const addr = CHANNEL_COIL_MAP[chanel];
-                node.warn(`chanel: ${chanel}, addr: ${addr}`);
+                const addr = CHANNEL_COIL_MAP[channel];
+                node.warn(`channel: ${channel}, addr: ${addr}`);
                 if (addr === undefined) return null;
 
                 const functionCode = 0x01; // Read Coils
@@ -394,8 +390,8 @@ switch (device_type) {
                 const quantityHi = (quantity >> 8) & 0xFF;
                 const quantityLo = quantity & 0xFF;
 
-                frame = Buffer.from([id, functionCode, startHi, startLo, quantityHi, quantityLo]);
-                node.warn(`frame:${[id, functionCode, startHi, startLo, quantityHi, quantityLo]}`);
+                frame = Buffer.from([moduleId, functionCode, startHi, startLo, quantityHi, quantityLo]);
+                node.warn(`frame: ${[moduleId, functionCode, startHi, startLo, quantityHi, quantityLo]}`);
                 node.warn(`frame:${frame.toString('hex')}`);
                 break;
             }
@@ -406,11 +402,11 @@ switch (device_type) {
                 const functionCode = 0x03; // Read Holding Registers
                 const quantityHi = 0x00;
                 const quantityLo = 0x02; // 讀兩個暫存
-                frame = Buffer.from([id, functionCode, regHi, regLo, quantityHi, quantityLo]);
+                frame = Buffer.from([moduleId, functionCode, regHi, regLo, quantityHi, quantityLo]);
                 break;
             }
             default: {
-                node.warn(`unknown query device_type: ${device_sub_type}`);
+                node.warn(`unknown query subtype: ${subType}`);
                 return null;
             }
         }
@@ -419,14 +415,14 @@ switch (device_type) {
 
         // 放入 mqtt_queue
         let mqtt_queue = global.get("mqtt_queue") || [];
-        mqtt_queue.push({ payload: cmdBuffer, deviceID: id, type: "query", device_type, device_sub_type, chanel });
+        mqtt_queue.push({ payload: cmdBuffer, deviceID: moduleId, type: "query", deviceType: "query", subType, channel });
         global.set("mqtt_queue", mqtt_queue);
 
         node.status({ fill: "blue", shape: "dot", text: `queue length ${mqtt_queue.length}` });
         return null;
     }
     default: {
-        node.warn(`unknown device:${device_type}`);
+        node.warn(`unknown device type: ${deviceType}`);
         return null;
     }
 }
