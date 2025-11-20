@@ -167,25 +167,25 @@ switch (deviceType) {
                         let lights = (parts[4]).split("--");
                         let groupBrightness = flow.get(`${subType}_${parts[3]}_${parts[4]}_brightness`);
                         for (let i = 0; i < lights.length; i++) {
-                            let light_id = lights[i].split("-")[0];
-                            let light_chanel = lights[i].split("-")[1];
+                            let lightId = lights[i].split("-")[0];
+                            let lightChannel = lights[i].split("-")[1];
 
                             let stateMsg = { ...msg };
-                            stateMsg.topic = `homeassistant/light/${parts[3]}/${light_id}/${light_chanel}/state`;
+                            stateMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/state`;
                             mqtt_queue.push(stateMsg);
 
                             let brightnessMsg = { ...msg };
-                            brightnessMsg.topic = `homeassistant/light/${parts[3]}/${light_id}/${light_chanel}/set/brightness`;
+                            brightnessMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/set/brightness`;
                             brightnessMsg.payload = groupBrightness;
                             mqtt_queue.push(brightnessMsg);
 
                             let brightnessStateMsg = { ...msg };
-                            brightnessStateMsg.topic = `homeassistant/light/${parts[3]}/${light_id}/${light_chanel}/brightness`;
+                            brightnessStateMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/brightness`;
                             brightnessStateMsg.payload = groupBrightness;
                             mqtt_queue.push(brightnessStateMsg);
 
                             let setMsg = { ...msg };
-                            setMsg.topic = `homeassistant/light/${parts[3]}/${light_id}/${light_chanel}/set`;
+                            setMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/set`;
                             mqtt_queue.push(setMsg);
                         }
                         return null;
