@@ -132,15 +132,24 @@ const HMI_pattern = [
         name: "scene_memory",
         pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
         parse: (input) => {
-            const operation = input[4];  // 0x81 記憶ON 0x82 記憶OFF 0x83 記憶場景1 0x84 記憶場景2
-            const sceneId = input[5];    // 0x02 會議室 0x03 公共區 0xff 全部
+            const operation = input[4];  // 0x81-0x88 記憶操作
+            const sceneId = input[5];    // 0x01 測試 0x02 會議室 0x03 公共區 0xff 全部
 
-            // 只處理記憶指令 0x81 到 0x84 其他操作碼交給 scene_control 處理
-            if (operation < 0x81 || operation > 0x84) {
+            // 只處理記憶指令 0x81 到 0x88 其他操作碼交給 scene_control 處理
+            if (operation < 0x81 || operation > 0x88) {
                 return null;
             }
 
             const SCENE_MEMORY_MAP = {
+                "0x01": {
+                    name: "測試", devices: [
+                        "homeassistant/light/single/13/1",
+                        "homeassistant/light/single/13/2",
+                        "homeassistant/light/single/13/3",
+                        "homeassistant/light/dual/14/a",
+                        "homeassistant/light/dual/14/b"
+                    ]
+                },
                 "0x02": {
                     name: "會議室", devices: [
                         "homeassistant/light/single/13/1",
@@ -153,17 +162,21 @@ const HMI_pattern = [
                 "0x03": {
                     name: "公共區", devices: [
                         "homeassistant/light/single/11/1",
+                        "homeassistant/light/single/11/2",
                         "homeassistant/light/single/12/1",
                         "homeassistant/light/single/12/2",
-                        "homeassistant/light/single/12/3"
+                        "homeassistant/light/single/12/3",
+                        "homeassistant/light/single/12/4"
                     ]
                 },
                 "0xff": {
                     name: "全部", devices: [
                         "homeassistant/light/single/11/1",
+                        "homeassistant/light/single/11/2",
                         "homeassistant/light/single/12/1",
                         "homeassistant/light/single/12/2",
                         "homeassistant/light/single/12/3",
+                        "homeassistant/light/single/12/4",
                         "homeassistant/light/single/13/1",
                         "homeassistant/light/single/13/2",
                         "homeassistant/light/single/13/3",
@@ -173,21 +186,37 @@ const HMI_pattern = [
                 }
             };
 
-            const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;
+            const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
             const opKey = `0x${(operation - 0x80).toString(16).padStart(2, '0').toUpperCase()}`; // 0x81 轉 0x01 0x82 轉 0x02
             const sceneInfo = SCENE_MEMORY_MAP[sceneKey];
 
             if (!sceneInfo) return null;
+
+            // 記憶操作名稱對照
+            const opNames = {
+                "0x01": "ON",
+                "0x02": "OFF",
+                "0x03": "場景1",
+                "0x04": "場景2",
+                "0x05": "場景3",
+                "0x06": "場景4",
+                "0x07": "場景5",
+                "0x08": "場景6"
+            };
+
+            const opName = opNames[opKey] || `操作${opKey}`;
 
             // 發送記憶儲存請求到 MQTT 主題
             // 格式 homeassistant/memory/sceneId/operation/save/set
             // 實際儲存處理由 general command 的 global.set 完成
             const memoryTopic = `homeassistant/memory/${sceneKey}/${opKey}/save/set`;
 
+            node.warn(`場景記憶: ${sceneInfo.name}_${opName} (${sceneKey}/${opKey})`);
+
             return [{
                 topic: memoryTopic,
                 payload: JSON.stringify({
-                    scene_name: `${sceneInfo.name}_${opKey === '0x01' ? 'ON' : opKey === '0x02' ? 'OFF' : opKey === '0x03' ? '場景1' : '場景2'}`,
+                    scene_name: `${sceneInfo.name}_${opName}`,
                     devices: sceneInfo.devices,
                     timestamp: new Date().toISOString(),
                     command: bufferToHexArray(input)

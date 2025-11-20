@@ -257,7 +257,9 @@ switch (deviceType) {
                             { ids: ["11-1", "11-2"], sceneId: "11-1--11-2" },  // 走廊間照
                             { ids: ["12-3", "12-4"], sceneId: "12-3--12-4" },  // 展示櫃
                             { ids: ["16-1", "16-2"], sceneId: "16-1--16-2" },  // 走道間照
-                            { ids: ["17-1", "17-2"], sceneId: "17-1--17-2" }   // 廚房
+                            { ids: ["17-1", "17-2"], sceneId: "17-1--17-2" },  // 廚房
+                            { ids: ["18-1", "18-2"], sceneId: "18-1--18-2" },  // 1F壁燈/地燈組合
+                            { ids: ["19-1", "19-2"], sceneId: "19-1--19-2" }   // 2F壁燈/地燈組合
                         ];
 
                         for (const group of sceneGroups) {
@@ -566,23 +568,23 @@ switch (deviceType) {
                 // 二楼場景 群組5 (H40)
                 "0x05": {
                     "0x01": [  // S1 全開 50%
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "ON" }
                     ],
                     "0x02": [  // S2 全關 0%
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ],
                     "0x03": [  // S3 舒适 0% (全关)
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ],
                     "0x04": [  // S4 用餐 0% (全关)
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ],
                     "0x05": [  // S5 影音 0% (全关)
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ],
                     "0x06": [  // S6 睡眠 0% (全关)
-                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ]
                 },
                 // 全部場景 群組255

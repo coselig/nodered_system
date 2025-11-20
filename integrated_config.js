@@ -46,13 +46,15 @@ let scenes = [
     { id: "scene_single_17-1--17-2", name: "廚房" },
     { id: "scene_single_18-1", name: "1F壁燈" },
     { id: "scene_single_18-2", name: "1F地燈" },
+    { id: "scene_single_18-1--18-2", name: "1F燈組" },
     { id: "scene_single_19-1", name: "2F壁燈" },
     { id: "scene_single_19-2", name: "2F地燈" },
+    { id: "scene_single_19-1--19-2", name: "2F燈組" },
     // 場景燈光群組 (用於場景控制)
     { id: "scene_single_11-1--11-2--12-1--12-2--12-3--12-4", name: "公共區燈組" },
     { id: "scene_single_13-1--13-2--13-3", name: "會議室燈組" },
     { id: "scene_dual_14-a--14-b", name: "會議室雙色溫燈組" },
-    { id: "scene_single_15-1--15-2--16-1--17-1", name: "二樓燈組" },
+    { id: "scene_single_15-1--15-2--16-1--16-2--17-1--17-2--18-1--18-2--19-1--19-2", name: "二樓燈組" },
     { id: "scene_single_18-1--18-2--19-1--19-2", name: "戶外燈組" },
 ];
 
