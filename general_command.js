@@ -56,9 +56,9 @@ function getBrightness(subType, moduleId, channel, state) {
     return brightness;
 }
 
-// ===================== 主流程 =====================
+// 主流程
 const parts = String(msg.topic || "").split("/");
-const deviceType = parts[1];     // light, cover, hvac, memory, scene, query
+const deviceType = parts[1];     // light cover hvac memory scene query
 switch (deviceType) {
     case "light": {
         const subType = parts[2];      // single, dual, relay, scene
@@ -76,7 +76,7 @@ switch (deviceType) {
                 const addr = CHANNEL_COIL_MAP[channel];
                 if (addr === undefined) return null;
 
-                // Coil 寫入值 (ON = 0xFF00, OFF = 0x0000)
+                // Coil 寫入值 ON 為 0xFF00 OFF 為 0x0000
                 const valHi = (msg.payload === "ON") ? 0xFF : 0x00;
                 const valLo = 0x00;
 
@@ -84,7 +84,7 @@ switch (deviceType) {
                 const hi = (addr >> 8) & 0xFF;
                 const lo = addr & 0xFF;
 
-                // 組 Modbus 指令 (0x05 = Write Single Coil)
+                // 組 Modbus 指令 0x05 Write Single Coil
                 const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);
 
                 msg.payload = generalCommandBuild(frame);
@@ -92,7 +92,7 @@ switch (deviceType) {
                 return null;
             }
             case "single": {
-                // 狀態 (ON / OFF)
+                // 狀態 ON 或 OFF
                 let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
 
                 let brightness = getBrightness(subType, moduleId, channel, state);
@@ -184,8 +184,8 @@ switch (deviceType) {
         }
     }
     case "cover": {
-        // 格式: 要開的_要開的/要關的_要關的_要關的
-        // payload 範例: "1_2/3" 表示開啟 relay 1 和 2，關閉 relay 3
+        // 格式 開啟的relay_開啟的relay/關閉的relay_關閉的relay
+        // payload 範例 1_2/3 表示開啟 relay 1 和 2 關閉 relay 3
         const moduleId = parseInt(parts[3]);  // 模組 ID
 
         let relays = msg.payload.split("/");
@@ -197,12 +197,12 @@ switch (deviceType) {
 
         // 打開 on_relays
         for (let relay of on_relays) {
-            output |= (1 << (relay - 1));  // relay 1 -> bit 0
+            output |= (1 << (relay - 1));  // relay 1 對應 bit 0
         }
 
         // 清除 off_relays 對應的 bit
         for (let relay of off_relays) {
-            output &= ~(1 << (relay - 1)); // relay 2 -> bit 1 置0
+            output &= ~(1 << (relay - 1)); // relay 2 對應 bit 1 置 0
         }
         const frame = Buffer.from([moduleId, 0x06, 0x01, 0x9b, 0x10, output]);
         msg.payload = generalCommandBuild(frame);
@@ -211,8 +211,8 @@ switch (deviceType) {
     }
     case "hvac": {
         const s200Id = parseInt(parts[2]);      // S200 模組 ID
-        const hvacId = parseInt(parts[3]);      // HVAC 設備 ID (1, 2, 3)
-        const hvacAction = parts[4];            // mode, fan, temperature
+        const hvacId = parseInt(parts[3]);      // HVAC 設備 ID 1 2 3
+        const hvacAction = parts[4];            // mode fan temperature
         const payload = msg.payload;
 
         const baseAddress = 0x100;
@@ -280,9 +280,9 @@ switch (deviceType) {
     }
     case "memory": {
         // 記憶儲存處理
-        // 主題格式 homeassistant/memory/{sceneId}/{operation}/save/set
-        const sceneId = parts[2];      // 0x02, 0x03, 0xFF
-        const operation = parts[3];    // 0x01, 0x02, 0x03, 0x04
+        // 主題格式 homeassistant/memory/sceneId/operation/save/set
+        const sceneId = parts[2];      // 0x02 0x03 0xFF
+        const operation = parts[3];    // 0x01 0x02 0x03 0x04
         const action = parts[4];       // save
 
         if (action === "save") {
@@ -306,9 +306,9 @@ switch (deviceType) {
     }
     case "scene": {
         // 場景執行處理
-        // 主題格式 homeassistant/scene/{sceneId}/{operation}/execute/set
-        const sceneId = parts[2];      // 0x02, 0x03, 0xFF
-        const operation = parts[3];    // 0x01, 0x02, 0x03, 0x04
+        // 主題格式 homeassistant/scene/sceneId/operation/execute/set
+        const sceneId = parts[2];      // 0x02 0x03 0xFF
+        const operation = parts[3];    // 0x01 0x02 0x03 0x04
         const action = parts[4];       // execute
 
         if (action !== "execute") return null;
@@ -368,7 +368,7 @@ switch (deviceType) {
         return null;
     }
     case "query": {
-        const subType = parts[2];      // light, cover
+        const subType = parts[2];      // light cover
         const moduleId = parseInt(parts[3]);  // 模組 ID
         const channel = parts[4];      // 通道 ID
 
@@ -377,7 +377,7 @@ switch (deviceType) {
         switch (subType) {
             case "light": {
                 node.warn(`query light: ${msg.topic}`);
-                // light 讀取線圈/亮度狀態
+                // light 讀取線圈或亮度狀態
                 const CHANNEL_COIL_MAP = { "1": 0x0000, "2": 0x0001, "3": 0x0002, "4": 0x0003 };
                 const addr = CHANNEL_COIL_MAP[channel];
                 node.warn(`channel: ${channel}, addr: ${addr}`);
@@ -396,8 +396,8 @@ switch (deviceType) {
                 break;
             }
             case "cover": {
-                // cover 讀取狀態 (假設也是線圈或寄存器)
-                const regHi = 0x01; // 假設起始寄存器
+                // cover 讀取狀態
+                const regHi = 0x01; // 起始寄存器
                 const regLo = 0x9B;
                 const functionCode = 0x03; // Read Holding Registers
                 const quantityHi = 0x00;
