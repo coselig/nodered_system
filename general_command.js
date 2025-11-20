@@ -286,9 +286,97 @@ switch (device_type) {
         node.send(msg);
         return null;
     }
+    case "memory": {
+        // 記憶儲存處理
+        // 主題格式 homeassistant/memory/{sceneId}/{operation}/save/set
+        const sceneId = parts[2];      // 0x02, 0x03, 0xFF
+        const operation = parts[3];    // 0x01, 0x02, 0x03, 0x04
+        const action = parts[4];       // save
+
+        if (action === "save") {
+            // 儲存到 global context
+            const memoryKey = `homeassistant/memory/${sceneId}/${operation}`;
+            const memoryData = JSON.parse(msg.payload);
+
+            global.set(memoryKey, memoryData);
+
+            // 發送確認通知
+            let mqtt_queue = global.get("mqtt_queue") || [];
+            mqtt_queue.push({
+                topic: `homeassistant/memory/${sceneId}/${operation}/saved`,
+                payload: JSON.stringify({ status: "saved", timestamp: new Date().toISOString() })
+            });
+            global.set("mqtt_queue", mqtt_queue);
+
+            node.warn(`記憶已儲存: ${memoryKey}`);
+        }
+        return null;
+    }
+    case "scene": {
+        // 場景執行處理
+        // 主題格式 homeassistant/scene/{sceneId}/{operation}/execute/set
+        const sceneId = parts[2];      // 0x02, 0x03, 0xFF
+        const operation = parts[3];    // 0x01, 0x02, 0x03, 0x04
+        const action = parts[4];       // execute
+
+        if (action !== "execute") return null;
+
+        let mqtt_queue = global.get("mqtt_queue") || [];
+
+        // 優先從記憶讀取場景資料
+        const memoryKey = `homeassistant/memory/${sceneId}/${operation}`;
+        const memoryData = global.get(memoryKey);
+
+        if (memoryData && memoryData.devices) {
+            // 使用記憶資料執行場景
+            node.warn(`執行記憶場景: ${memoryKey}`);
+
+            // 從 memoryData 解析並發送到 mqtt_queue
+            // 這裡需要根據儲存的格式來解析
+            // 假設 memoryData.devices 是設備列表
+            for (const deviceTopic of memoryData.devices) {
+                // 發送場景觸發到各設備
+                mqtt_queue.push({
+                    topic: `${deviceTopic}/set`,
+                    payload: "ON"
+                });
+            }
+        } else {
+            // 使用預設場景配置
+            node.warn(`執行預設場景: ${sceneId}/${operation}`);
+
+            const SCENE_DEFAULT = {
+                "0x02": {
+                    "0x01": ["homeassistant/light/single/13/1", "homeassistant/light/single/13/2", "homeassistant/light/single/13/3", "homeassistant/light/dual/14/a", "homeassistant/light/dual/14/b"],
+                    "0x02": ["homeassistant/light/single/13/1", "homeassistant/light/single/13/2", "homeassistant/light/single/13/3", "homeassistant/light/dual/14/a", "homeassistant/light/dual/14/b"]
+                },
+                "0x03": {
+                    "0x01": ["homeassistant/light/single/11/1", "homeassistant/light/single/12/1", "homeassistant/light/single/12/2", "homeassistant/light/single/12/3"],
+                    "0x02": ["homeassistant/light/single/11/1", "homeassistant/light/single/12/1", "homeassistant/light/single/12/2", "homeassistant/light/single/12/3"]
+                },
+                "0xFF": {
+                    "0x01": ["homeassistant/light/single/11/1", "homeassistant/light/single/12/1", "homeassistant/light/single/12/2", "homeassistant/light/single/12/3", "homeassistant/light/single/13/1", "homeassistant/light/single/13/2", "homeassistant/light/single/13/3", "homeassistant/light/dual/14/a", "homeassistant/light/dual/14/b"],
+                    "0x02": ["homeassistant/light/single/11/1", "homeassistant/light/single/12/1", "homeassistant/light/single/12/2", "homeassistant/light/single/12/3", "homeassistant/light/single/13/1", "homeassistant/light/single/13/2", "homeassistant/light/single/13/3", "homeassistant/light/dual/14/a", "homeassistant/light/dual/14/b"]
+                }
+            };
+
+            const devices = SCENE_DEFAULT[sceneId]?.[operation];
+            if (devices) {
+                const state = operation === "0x02" ? "OFF" : "ON";
+                for (const deviceTopic of devices) {
+                    mqtt_queue.push({
+                        topic: `${deviceTopic}/set`,
+                        payload: state
+                    });
+                }
+            }
+        }
+
+        global.set("mqtt_queue", mqtt_queue);
+        return null;
+    }
     case "query": {
         node.warn(`received topic:${msg.topic}`);
-
         let frame;
         switch (device_sub_type) {
             case "light": {

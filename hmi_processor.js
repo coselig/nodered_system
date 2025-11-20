@@ -145,9 +145,9 @@ const HMI_pattern = [
             if (!sceneInfo) return null;
 
             // 發送記憶儲存請求到 MQTT 主題
-            // 格式 homeassistant/scene/memory/sceneId/operation/save
-            // 實際應用時會由外部邏輯讀取當前燈光狀態並儲存
-            const memoryTopic = `homeassistant/scene/memory/${sceneKey}/${opKey}/save`;
+            // 格式 homeassistant/memory/sceneId/operation/save/set
+            // 實際儲存處理由 general command 的 global.set 完成
+            const memoryTopic = `homeassistant/memory/${sceneKey}/${opKey}/save/set`;
 
             return [{
                 topic: memoryTopic,
@@ -173,89 +173,14 @@ const HMI_pattern = [
                 return null;
             }
 
-            // 場景配置表 亮度色溫固定值 未來可改為記憶功能
-            const SCENE_CONFIG = {
-                // 會議室場景 sceneId 0x02
-                "0x02": {
-                    "0x01": [  // 會議室 ON
-                        ...genLight("homeassistant/light/single/13/1", "ON", 60),
-                        ...genLight("homeassistant/light/single/13/2", "ON", 60),
-                        ...genLight("homeassistant/light/single/13/3", "ON", 60),
-                        ...genLight("homeassistant/light/dual/14/a", "ON", 50, percentToColortemp(50)),
-                        ...genLight("homeassistant/light/dual/14/b", "ON", 50, percentToColortemp(50))
-                    ],
-                    "0x02": [  // 會議室 OFF
-                        ...genLight("homeassistant/light/single/13/1", "OFF"),
-                        ...genLight("homeassistant/light/single/13/2", "OFF"),
-                        ...genLight("homeassistant/light/single/13/3", "OFF"),
-                        ...genLight("homeassistant/light/dual/14/a", "OFF"),
-                        ...genLight("homeassistant/light/dual/14/b", "OFF")
-                    ],
-                    "0x03": [  // 會議室1
-                        ...genLight("homeassistant/light/single/13/1", "ON", 100),
-                        ...genLight("homeassistant/light/single/13/2", "ON", 100),
-                        ...genLight("homeassistant/light/single/13/3", "ON", 100),
-                        ...genLight("homeassistant/light/dual/14/a", "ON", 100, percentToColortemp(100)),
-                        ...genLight("homeassistant/light/dual/14/b", "ON", 100, percentToColortemp(100))
-                    ],
-                    "0x04": [  // 會議室2
-                        ...genLight("homeassistant/light/single/13/1", "OFF"),
-                        ...genLight("homeassistant/light/single/13/2", "OFF"),
-                        ...genLight("homeassistant/light/single/13/3", "ON", 10),
-                        ...genLight("homeassistant/light/dual/14/a", "ON", 50, percentToColortemp(0)),
-                        ...genLight("homeassistant/light/dual/14/b", "ON", 50, percentToColortemp(0))
-                    ]
-                },
-                // 公共區場景 sceneId 0x03
-                "0x03": {
-                    "0x01": [  // 公共區 ON
-                        ...genLight("homeassistant/light/single/11/1", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/1", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/2", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/3", "ON", 50)
-                    ],
-                    "0x02": [  // 公共區 OFF
-                        ...genLight("homeassistant/light/single/11/1", "OFF"),
-                        ...genLight("homeassistant/light/single/12/1", "OFF"),
-                        ...genLight("homeassistant/light/single/12/2", "OFF"),
-                        ...genLight("homeassistant/light/single/12/3", "OFF")
-                    ]
-                },
-                // 全部場景 sceneId 0xff
-                "0xff": {
-                    "0x01": [  // 全開
-                        ...genLight("homeassistant/light/single/11/1", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/1", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/2", "ON", 50),
-                        ...genLight("homeassistant/light/single/12/3", "ON", 50),
-                        ...genLight("homeassistant/light/single/13/1", "ON", 60),
-                        ...genLight("homeassistant/light/single/13/2", "ON", 60),
-                        ...genLight("homeassistant/light/single/13/3", "ON", 60),
-                        ...genLight("homeassistant/light/dual/14/a", "ON", 50, percentToColortemp(50)),
-                        ...genLight("homeassistant/light/dual/14/b", "ON", 50, percentToColortemp(50))
-                    ],
-                    "0x02": [  // 全關
-                        ...genLight("homeassistant/light/single/11/1", "OFF"),
-                        ...genLight("homeassistant/light/single/12/1", "OFF"),
-                        ...genLight("homeassistant/light/single/12/2", "OFF"),
-                        ...genLight("homeassistant/light/single/12/3", "OFF"),
-                        ...genLight("homeassistant/light/single/13/1", "OFF"),
-                        ...genLight("homeassistant/light/single/13/2", "OFF"),
-                        ...genLight("homeassistant/light/single/13/3", "OFF"),
-                        ...genLight("homeassistant/light/dual/14/a", "OFF"),
-                        ...genLight("homeassistant/light/dual/14/b", "OFF")
-                    ]
-                }
-            };
-
+            // 轉換為 MQTT 主題 實際場景執行由 general_command 處理
             const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;
             const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
 
-            if (SCENE_CONFIG[sceneKey] && SCENE_CONFIG[sceneKey][opKey]) {
-                return SCENE_CONFIG[sceneKey][opKey];
-            }
-
-            return null;
+            return [{
+                topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
+                payload: "ON"
+            }];
         }
     },
     {
