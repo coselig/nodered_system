@@ -251,6 +251,30 @@ switch (deviceType) {
                             sceneBrightnessMsg.payload = groupBrightness;
                             mqtt_queue.push(sceneBrightnessMsg);
                         }
+
+                        // 更新組合型場景設備UI（如走廊間照 11-1--11-2、展示櫃 12-3--12-4）
+                        const sceneGroups = [
+                            { ids: ["11-1", "11-2"], sceneId: "11-1--11-2" },  // 走廊間照
+                            { ids: ["12-3", "12-4"], sceneId: "12-3--12-4" },  // 展示櫃
+                            { ids: ["16-1", "16-2"], sceneId: "16-1--16-2" },  // 走道間照
+                            { ids: ["17-1", "17-2"], sceneId: "17-1--17-2" }   // 廚房
+                        ];
+
+                        for (const group of sceneGroups) {
+                            // 檢查當前觸發的燈光是否包含此組合的所有成員
+                            const allIncluded = group.ids.every(id => lights.includes(id));
+                            if (allIncluded) {
+                                let groupSceneStateMsg = { ...msg };
+                                groupSceneStateMsg.topic = `homeassistant/light/scene/${parts[3]}/${group.sceneId}/state`;
+                                mqtt_queue.push(groupSceneStateMsg);
+
+                                let groupSceneBrightnessMsg = { ...msg };
+                                groupSceneBrightnessMsg.topic = `homeassistant/light/scene/${parts[3]}/${group.sceneId}/brightness`;
+                                groupSceneBrightnessMsg.payload = groupBrightness;
+                                mqtt_queue.push(groupSceneBrightnessMsg);
+                            }
+                        }
+
                         return null;
                     }
                     case "dual": {
@@ -522,11 +546,11 @@ switch (deviceType) {
                 // 公共區場景 群組3
                 "0x03": {
                     "0x01": [  // 公共區ON 50%
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set", payload: "ON" }
                     ],
                     "0x02": [  // 公共區OFF 0%
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set", payload: "OFF" }
                     ]
                 },
                 // 戶外燈場景 群組4
@@ -564,16 +588,16 @@ switch (deviceType) {
                 // 全部場景 群組255
                 "0xFF": {
                     "0x01": [  // 全開 各區預設亮度
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set/brightness", payload: 50 },
                         { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set/brightness", payload: 60 },
                         { topic: "homeassistant/light/scene/dual/14-a--14-b/set/brightness", payload: 50 },
                         { topic: "homeassistant/light/scene/dual/14-a--14-b/set/colortemp", payload: 250 },
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "ON" }
                     ],
                     "0x02": [  // 全關
-                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/single/11-1--11-2--12-1--12-2--12-3--12-4/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "OFF" }
                     ]

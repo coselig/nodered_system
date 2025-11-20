@@ -29,20 +29,33 @@ const HMI_project = [
 
 // 動態 pattern 可解析變數值
 const HMI_pattern = [
-    // 測試指令 將測試指令轉換為實際場景指令
+    // H70測試按鈕指令 將測試指令轉換為實際場景指令
     {
-        name: "test_command",
-        pattern: [0xfe, 0x06, 0x08, 0x20, null, 0x04, null, null],
+        name: "h70_test_command",
+        pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
         parse: (input) => {
-            const operation = input[4];  // 0x01 或 0x02
+            const operation = input[4];  // 0x01=ON 或 0x02=OFF
+            const sceneId = input[5];    // 0x02=會議室, 0x03=公共區, 0x04=戶外, 0x05=H40二樓
 
-            // 將測試指令轉換為會議室場景指令
-            // 0x01 測試按鈕1 轉為會議室ON 0x02
-            // 0x02 測試按鈕2 轉為會議室OFF 0x02
-            const sceneKey = "0x02";  // 會議室
+            const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
             const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
 
-            node.warn(`測試指令觸發: operation=${opKey}, 轉發至會議室場景 (開/關)`);
+            // 場景名稱對照
+            const sceneNames = {
+                "0x02": "會議室",
+                "0x03": "公共區",
+                "0x04": "戶外燈",
+                "0x05": "H40二樓"
+            };
+            const opNames = {
+                "0x01": "ON",
+                "0x02": "OFF"
+            };
+
+            const sceneName = sceneNames[sceneKey] || `未知場景${sceneKey}`;
+            const opName = opNames[opKey] || `未知操作${opKey}`;
+
+            node.warn(`H70測試按鈕: ${sceneName} ${opName} (${sceneKey}/${opKey})`);
 
             return [{
                 topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
