@@ -56,6 +56,12 @@ function getBrightness(subType, moduleId, channel, state) {
     return brightness;
 }
 
+// 自動處理 modbus_queue 的輔助函數
+function triggerModbusQueueProcessor() {
+    // 發送觸發訊息到第二個輸出
+    node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
+}
+
 // 主流程
 const parts = String(msg.topic || "").split("/");
 const deviceType = parts[1];     // light cover hvac memory scene query
@@ -105,9 +111,21 @@ switch (deviceType) {
 
                 // 組 Modbus 指令 0x05 Write Single Coil
                 const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);
+                const state = (msg.payload === "ON") ? "ON" : "OFF";
 
-                msg.payload = generalCommandBuild(frame);
-                node.send(msg);
+                // 推入 modbus_queue 統一管理發送
+                let modbus_queue = global.get("modbus_queue") || [];
+                modbus_queue.push({ payload: generalCommandBuild(frame) });
+                global.set("modbus_queue", modbus_queue);
+
+                // 發送 MQTT 狀態更新給 Home Assistant
+                let mqtt_queue = global.get("mqtt_queue") || [];
+                const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;
+                mqtt_queue.push({ topic: `${baseTopic}/state`, payload: state });
+                global.set("mqtt_queue", mqtt_queue);
+
+                // 發送觸發訊息給 modbus_queue_processor
+                node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
                 return null;
             }
             case "single": {
@@ -121,10 +139,27 @@ switch (deviceType) {
                 // 高低位元組
                 const hi = (reg >> 8) & 0xFF;
                 const lo = reg & 0xFF;
+                // OFF 狀態使用 speed=0x00 立即執行，ON 狀態使用 BRIGHTNESS_TIME
+                const speed = (state === "OFF") ? 0x00 : BRIGHTNESS_TIME;
                 // 組 Modbus 指令
-                const cmd = Buffer.from([moduleId, 0x06, hi, lo, BRIGHTNESS_TIME, brightness]);
-                msg.payload = generalCommandBuild(cmd);
-                node.send(msg);
+                const cmd = Buffer.from([moduleId, 0x06, hi, lo, speed, brightness]);
+
+                // 推入 modbus_queue 統一管理發送
+                let modbus_queue = global.get("modbus_queue") || [];
+                modbus_queue.push({ payload: generalCommandBuild(cmd) });
+                global.set("modbus_queue", modbus_queue);
+
+                // 發送 MQTT 狀態更新給 Home Assistant
+                let mqtt_queue = global.get("mqtt_queue") || [];
+                const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;
+                mqtt_queue.push({ topic: `${baseTopic}/state`, payload: state });
+                if (state === "ON") {
+                    mqtt_queue.push({ topic: `${baseTopic}/brightness`, payload: brightness });
+                }
+                global.set("mqtt_queue", mqtt_queue);
+
+                // 發送觸發訊息給 modbus_queue_processor
+                node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
                 return null;
             }
             case "dual": {
@@ -152,8 +187,25 @@ switch (deviceType) {
                 const brValue = (state === "ON") ? brightness : 0;
                 const cmdBrightness = buildCommand(moduleId, regs[0], brValue);
                 const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);
-                node.send({ payload: cmdBrightness });
-                node.send({ payload: cmdColortemp });
+
+                // 推入 modbus_queue 統一管理發送
+                let modbus_queue = global.get("modbus_queue") || [];
+                modbus_queue.push({ payload: cmdBrightness });
+                modbus_queue.push({ payload: cmdColortemp });
+                global.set("modbus_queue", modbus_queue);
+
+                // 發送 MQTT 狀態更新給 Home Assistant
+                let mqtt_queue = global.get("mqtt_queue") || [];
+                const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;
+                mqtt_queue.push({ topic: `${baseTopic}/state`, payload: state });
+                if (state === "ON") {
+                    mqtt_queue.push({ topic: `${baseTopic}/brightness`, payload: brightness });
+                    mqtt_queue.push({ topic: `${baseTopic}/colortemp`, payload: colortemp });
+                }
+                global.set("mqtt_queue", mqtt_queue);
+
+                // 發送觸發訊息給 modbus_queue_processor
+                node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
 
                 return null;
             }
@@ -225,7 +277,12 @@ switch (deviceType) {
         }
         const frame = Buffer.from([moduleId, 0x06, 0x01, 0x9b, 0x10, output]);
         msg.payload = generalCommandBuild(frame);
-        node.send(msg);
+        // 推入 modbus_queue 統一管理發送
+        let modbus_queue = global.get("modbus_queue") || [];
+        modbus_queue.push(msg);
+        global.set("modbus_queue", modbus_queue);
+        // 發送觸發訊息給 modbus_queue_processor
+        node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
     case "hvac": {
@@ -294,7 +351,12 @@ switch (deviceType) {
         ]);
 
         msg.payload = generalCommandBuild(frame);
-        node.send(msg);
+        // 推入 modbus_queue 統一管理發送
+        let modbus_queue = global.get("modbus_queue") || [];
+        modbus_queue.push(msg);
+        global.set("modbus_queue", modbus_queue);
+        // 發送觸發訊息給 modbus_queue_processor
+        node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
     case "memory": {
@@ -360,17 +422,17 @@ switch (deviceType) {
             const SCENE_DEFAULT = {
                 // 會議室場景 群組2
                 "0x02": {
-                    "0x01": [  // 會議室ON 60%
-                        { topic: "homeassistant/light/single/13/1/set", payload: "ON" },
+                    "0x01": [  // 會議室ON 60% - 先設定亮度再開燈
                         { topic: "homeassistant/light/single/13/1/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/single/13/2/set", payload: "ON" },
                         { topic: "homeassistant/light/single/13/2/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/single/13/3/set", payload: "ON" },
                         { topic: "homeassistant/light/single/13/3/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
                         { topic: "homeassistant/light/dual/14/a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 50 }
+                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/single/13/1/set", payload: "ON" },
+                        { topic: "homeassistant/light/single/13/2/set", payload: "ON" },
+                        { topic: "homeassistant/light/single/13/3/set", payload: "ON" },
+                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
+                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" }
                     ],
                     "0x02": [  // 會議室OFF 0%
                         { topic: "homeassistant/light/single/13/1/set", payload: "OFF" },
@@ -554,12 +616,14 @@ switch (deviceType) {
         const cmdBuffer = generalCommandBuild(frame);
 
 
-        // 放入 mqtt_queue
-        let mqtt_queue = global.get("mqtt_queue") || [];
-        mqtt_queue.push({ payload: cmdBuffer, deviceID: moduleId, type: "query", deviceType: "query", subType, channel });
-        global.set("mqtt_queue", mqtt_queue);
+        // 放入 modbus_queue 統一管理發送
+        let modbus_queue = global.get("modbus_queue") || [];
+        modbus_queue.push({ payload: cmdBuffer, deviceID: moduleId, type: "query", deviceType: "query", subType, channel });
+        global.set("modbus_queue", modbus_queue);
 
-        node.status({ fill: "blue", shape: "dot", text: `queue length ${mqtt_queue.length}` });
+        node.status({ fill: "blue", shape: "dot", text: `modbus queue length ${modbus_queue.length}` });
+        // 發送觸發訊息給 modbus_queue_processor
+        node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
     default: {
