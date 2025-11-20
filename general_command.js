@@ -59,6 +59,25 @@ function getBrightness(subType, moduleId, channel, state) {
 // 主流程
 const parts = String(msg.topic || "").split("/");
 const deviceType = parts[1];     // light cover hvac memory scene query
+
+// 處理 flow 快取更新 homeassistant/device_type/subType/id/channel/set/attribute
+// 範例 homeassistant/light/single/13/1/set/brightness
+if (parts[5] === "set" && parts.length >= 7) {
+    const subType = parts[2];
+    const moduleId = parts[3];
+    const channel = parts[4];
+    const attribute = parts[6];  // brightness colortemp 等
+
+    const key = `${subType}_${moduleId}_${channel}_${attribute}`;
+    const val = Number(msg.payload);
+
+    if (!isNaN(val)) {
+        flow.set(key, val);
+        node.status({ fill: "green", shape: "ring", text: `${key} = ${val}` });
+    }
+    return null;
+}
+
 switch (deviceType) {
     case "light": {
         const subType = parts[2];      // single, dual, relay, scene
