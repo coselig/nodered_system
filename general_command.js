@@ -242,6 +242,47 @@ switch (deviceType) {
                         }
                         return null;
                     }
+                    case "dual": {
+                        let lights = (parts[4]).split("--");
+                        let groupBrightness = flow.get(`${subType}_${parts[3]}_${parts[4]}_brightness`);
+                        let groupColortemp = flow.get(`${subType}_${parts[3]}_${parts[4]}_colortemp`);
+
+                        for (let i = 0; i < lights.length; i++) {
+                            let lightId = lights[i].split("-")[0];
+                            let lightChannel = lights[i].split("-")[1];
+
+                            let stateMsg = { ...msg };
+                            stateMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/state`;
+                            mqtt_queue.push(stateMsg);
+
+                            let brightnessMsg = { ...msg };
+                            brightnessMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/set/brightness`;
+                            brightnessMsg.payload = groupBrightness;
+                            mqtt_queue.push(brightnessMsg);
+
+                            let brightnessStateMsg = { ...msg };
+                            brightnessStateMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/brightness`;
+                            brightnessStateMsg.payload = groupBrightness;
+                            mqtt_queue.push(brightnessStateMsg);
+
+                            if (groupColortemp !== undefined) {
+                                let colortempMsg = { ...msg };
+                                colortempMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/set/colortemp`;
+                                colortempMsg.payload = groupColortemp;
+                                mqtt_queue.push(colortempMsg);
+
+                                let colortempStateMsg = { ...msg };
+                                colortempStateMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/colortemp`;
+                                colortempStateMsg.payload = groupColortemp;
+                                mqtt_queue.push(colortempStateMsg);
+                            }
+
+                            let setMsg = { ...msg };
+                            setMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/set`;
+                            mqtt_queue.push(setMsg);
+                        }
+                        return null;
+                    }
                     default: {
                         node.warn(`receive scene:${parts[3]}`);
                         return null;
@@ -426,44 +467,44 @@ switch (deviceType) {
                         { topic: "homeassistant/light/scene/single/13-1/set/brightness", payload: 60 },
                         { topic: "homeassistant/light/scene/single/13-2/set/brightness", payload: 60 },
                         { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/dual/14/a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 50 },
                         { topic: "homeassistant/light/scene/single/13-1/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/single/13-2/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
                     ],
                     "0x02": [  // 會議室OFF 0%
                         { topic: "homeassistant/light/scene/single/13-1/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-2/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-3/set", payload: "OFF" },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "OFF" },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "OFF" }
                     ],
                     "0x03": [  // 會議室場景1 100%
                         { topic: "homeassistant/light/scene/single/13-1/set/brightness", payload: 100 },
                         { topic: "homeassistant/light/scene/single/13-2/set/brightness", payload: 100 },
                         { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/dual/14/a/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 100 },
+                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 100 },
+                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 100 },
                         { topic: "homeassistant/light/scene/single/13-1/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/single/13-2/set", payload: "ON" },
                         { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
                     ],
                     "0x04": [  // 會議室場景2 混合
                         { topic: "homeassistant/light/scene/single/13-1/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-2/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 10 },
                         { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/dual/14/a/set/colortemp", payload: 333 },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/dual/14/b/set/colortemp", payload: 333 },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-a/set/colortemp", payload: 333 },
+                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-b/set/colortemp", payload: 333 },
+                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
                     ]
                 },
                 // 公共區場景 群組3
