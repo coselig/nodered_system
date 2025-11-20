@@ -28,6 +28,27 @@ const HMI_project = [
 
 // 動態 pattern 可解析變數值
 const HMI_pattern = [
+// 測試指令 將測試指令轉換為實際場景指令
+    {
+        name: "test_command",
+        pattern: [0xfe, 0x06, 0x08, 0x20, null, 0x04, null, null],
+        parse: (input) => {
+            const operation = input[4];  // 0x01 或 0x02
+            
+            // 將測試指令轉換為會議室場景指令
+            // 0x01 測試ON 轉為會議室ON 0x02
+            // 0x02 測試OFF 轉為會議室OFF 0x02
+            const sceneKey = "0x02";  // 會議室
+            const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
+            
+            node.warn(`測試指令觸發: operation=${opKey}, 轉發至會議室場景`);
+            
+            return [{
+                topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
+                payload: "ON"
+            }];
+        }
+    },
 // 窗簾控制 動態解析
     {
         name: "curtain_control",
