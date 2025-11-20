@@ -222,6 +222,7 @@ switch (deviceType) {
                             let lightId = lights[i].split("-")[0];
                             let lightChannel = lights[i].split("-")[1];
 
+                            // 更新實際設備狀態
                             let stateMsg = { ...msg };
                             stateMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/state`;
                             mqtt_queue.push(stateMsg);
@@ -239,6 +240,16 @@ switch (deviceType) {
                             let setMsg = { ...msg };
                             setMsg.topic = `homeassistant/light/${parts[3]}/${lightId}/${lightChannel}/set`;
                             mqtt_queue.push(setMsg);
+
+                            // 更新對應的場景設備UI狀態
+                            let sceneStateMsg = { ...msg };
+                            sceneStateMsg.topic = `homeassistant/light/scene/${parts[3]}/${lightId}-${lightChannel}/state`;
+                            mqtt_queue.push(sceneStateMsg);
+
+                            let sceneBrightnessMsg = { ...msg };
+                            sceneBrightnessMsg.topic = `homeassistant/light/scene/${parts[3]}/${lightId}-${lightChannel}/brightness`;
+                            sceneBrightnessMsg.payload = groupBrightness;
+                            mqtt_queue.push(sceneBrightnessMsg);
                         }
                         return null;
                     }
@@ -251,6 +262,7 @@ switch (deviceType) {
                             let lightId = lights[i].split("-")[0];
                             let lightChannel = lights[i].split("-")[1];
 
+                            // 更新實際設備狀態
                             let stateMsg = { ...msg };
                             stateMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/state`;
                             mqtt_queue.push(stateMsg);
@@ -280,6 +292,23 @@ switch (deviceType) {
                             let setMsg = { ...msg };
                             setMsg.topic = `homeassistant/light/dual/${lightId}/${lightChannel}/set`;
                             mqtt_queue.push(setMsg);
+
+                            // 更新對應的場景設備UI狀態
+                            let sceneStateMsg = { ...msg };
+                            sceneStateMsg.topic = `homeassistant/light/scene/${parts[3]}/${lightId}-${lightChannel}/state`;
+                            mqtt_queue.push(sceneStateMsg);
+
+                            let sceneBrightnessMsg = { ...msg };
+                            sceneBrightnessMsg.topic = `homeassistant/light/scene/${parts[3]}/${lightId}-${lightChannel}/brightness`;
+                            sceneBrightnessMsg.payload = groupBrightness;
+                            mqtt_queue.push(sceneBrightnessMsg);
+
+                            if (groupColortemp !== undefined) {
+                                let sceneColortempMsg = { ...msg };
+                                sceneColortempMsg.topic = `homeassistant/light/scene/${parts[3]}/${lightId}-${lightChannel}/colortemp`;
+                                sceneColortempMsg.payload = groupColortemp;
+                                mqtt_queue.push(sceneColortempMsg);
+                            }
                         }
                         return null;
                     }
@@ -464,162 +493,89 @@ switch (deviceType) {
                 // 會議室場景 群組2
                 "0x02": {
                     "0x01": [  // 會議室ON 60% - 使用場景燈群組
-                        { topic: "homeassistant/light/scene/single/13-1/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/scene/single/13-2/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/single/13-1/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/single/13-2/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set/brightness", payload: 60 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/colortemp", payload: 250 },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "ON" }
                     ],
                     "0x02": [  // 會議室OFF 0%
-                        { topic: "homeassistant/light/scene/single/13-1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/scene/single/13-2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/scene/single/13-3/set", payload: "OFF" },
-                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "OFF" },
-                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "OFF" }
                     ],
-                    "0x03": [  // 會議室場景1 100%
-                        { topic: "homeassistant/light/scene/single/13-1/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/scene/single/13-2/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 100 },
-                        { topic: "homeassistant/light/scene/single/13-1/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/single/13-2/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
+                    "0x03": [  // 會議室100% 100%
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set/brightness", payload: 100 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/brightness", payload: 100 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/colortemp", payload: 250 },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "ON" }
                     ],
                     "0x04": [  // 會議室場景2 混合
-                        { topic: "homeassistant/light/scene/single/13-1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/scene/single/13-2/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2/set", payload: "OFF" },
                         { topic: "homeassistant/light/scene/single/13-3/set/brightness", payload: 10 },
                         { topic: "homeassistant/light/scene/single/13-3/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/dual/14-a/set/colortemp", payload: 333 },
-                        { topic: "homeassistant/light/scene/dual/14-a/set", payload: "ON" },
-                        { topic: "homeassistant/light/scene/dual/14-b/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/scene/dual/14-b/set/colortemp", payload: 333 },
-                        { topic: "homeassistant/light/scene/dual/14-b/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/colortemp", payload: 333 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "ON" }
                     ]
                 },
                 // 公共區場景 群組3
                 "0x03": {
                     "0x01": [  // 公共區ON 50%
-                        { topic: "homeassistant/light/single/11/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/11/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/2/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/3/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/3/set/brightness", payload: 50 }
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "ON" }
                     ],
                     "0x02": [  // 公共區OFF 0%
-                        { topic: "homeassistant/light/single/11/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/3/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "OFF" }
                     ]
                 },
                 // 戶外燈場景 群組4
                 "0x04": {
                     "0x01": [  // 戶外燈ON 50%
-                        { topic: "homeassistant/light/single/18/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/18/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/18/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/18/2/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/19/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/19/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/19/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/19/2/set/brightness", payload: 50 }
+                        { topic: "homeassistant/light/scene/single/18-1--18-2--19-1--19-2/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/18-1--18-2--19-1--19-2/set", payload: "ON" }
                     ],
                     "0x02": [  // 戶外燈OFF 0%
-                        { topic: "homeassistant/light/single/18/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/18/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/19/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/19/2/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/18-1--18-2--19-1--19-2/set", payload: "OFF" }
                     ]
                 },
-                // 二楼场景 群組5 (H40)
+                // 二楼場景 群組5 (H40)
                 "0x05": {
                     "0x01": [  // S1 全開 50%
-                        { topic: "homeassistant/light/single/15/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/15/2/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/16/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/17/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/15/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "ON" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "ON" }
                     ],
                     "0x02": [  // S2 全關 0%
-                        { topic: "homeassistant/light/single/15/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
                     ],
                     "0x03": [  // S3 舒适 0% (全关)
-                        { topic: "homeassistant/light/single/15/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
                     ],
                     "0x04": [  // S4 用餐 0% (全关)
-                        { topic: "homeassistant/light/single/15/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
                     ],
                     "0x05": [  // S5 影音 0% (全关)
-                        { topic: "homeassistant/light/single/15/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
                     ],
                     "0x06": [  // S6 睡眠 0% (全关)
-                        { topic: "homeassistant/light/single/15/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/15/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/16/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/17/1/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/15-1--15-2--16-1--17-1/set", payload: "OFF" }
                     ]
                 },
                 // 全部場景 群組255
                 "0xFF": {
                     "0x01": [  // 全開 各區預設亮度
-                        { topic: "homeassistant/light/single/11/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/11/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/1/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/2/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/12/3/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/12/3/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/single/13/1/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/13/1/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/single/13/2/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/13/2/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/single/13/3/set", payload: "ON" },
-                        { topic: "homeassistant/light/single/13/3/set/brightness", payload: 60 },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/a/set/brightness", payload: 50 },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "ON" },
-                        { topic: "homeassistant/light/dual/14/b/set/brightness", payload: 50 }
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set/brightness", payload: 60 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/brightness", payload: 50 },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set/colortemp", payload: 250 },
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "ON" },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "ON" }
                     ],
                     "0x02": [  // 全關
-                        { topic: "homeassistant/light/single/11/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/12/3/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/13/1/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/13/2/set", payload: "OFF" },
-                        { topic: "homeassistant/light/single/13/3/set", payload: "OFF" },
-                        { topic: "homeassistant/light/dual/14/a/set", payload: "OFF" },
-                        { topic: "homeassistant/light/dual/14/b/set", payload: "OFF" }
+                        { topic: "homeassistant/light/scene/single/11-1--12-1--12-2--12-3/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/single/13-1--13-2--13-3/set", payload: "OFF" },
+                        { topic: "homeassistant/light/scene/dual/14-a--14-b/set", payload: "OFF" }
                     ]
                 }
             };
