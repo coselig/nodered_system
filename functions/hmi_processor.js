@@ -176,7 +176,9 @@ const HMI_pattern = [
                 // 獲取對應的場景和操作
                 const targetSceneId = mapping.sceneId;
                 const targetOperation = mapping.operation;
-                const sceneInfo = SCENE_MEMORY_MAP[targetSceneId]; if (!sceneInfo) {
+                const sceneInfo = SCENE_MEMORY_MAP[targetSceneId]; 
+                
+                if (!sceneInfo) {
                     node.warn(`未找到場景配置: ${targetSceneId}`);
                     return null;
                 }

@@ -1,3 +1,8 @@
+/**
+ * command(General) - 通用命令處理函數
+ * 處理來自 Home Assistant 的 MQTT 命令並轉換為 Modbus 指令
+ */
+
 const DEFAULT_BRIGHTNESS = 100;
 const DEFAULT_COLORTEMP = 250;
 const MIN_MIRED = 167, MAX_MIRED = 333;
@@ -11,7 +16,7 @@ const CHANNEL_REGISTER_MAP = {
     "b": [0x082C, 0x082D],
 };
 
-// CRC
+// CRC 驗證
 function verifyCRC(buf) {
     let crc = 0xFFFF;
     for (let i = 0; i < buf.length - 2; i++) {
@@ -56,9 +61,8 @@ function getBrightness(subType, moduleId, channel, state) {
     return brightness;
 }
 
-// 自動處理 modbus_queue 的輔助函數
+// 自動處理 modbus_queue 的輔助函數（目前沒用到，但保留）
 function triggerModbusQueueProcessor() {
-    // 發送觸發訊息到第二個輸出
     node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
 }
 
@@ -66,29 +70,65 @@ function triggerModbusQueueProcessor() {
 const parts = String(msg.topic || "").split("/");
 const deviceType = parts[1];     // light cover hvac memory scene query
 
-// 處理 flow 快取更新 homeassistant/device_type/subType/id/channel/set/attribute
-// 範例 homeassistant/light/single/13/1/set/brightness
-if (parts[5] === "set" && parts.length >= 7) {
-    const subType = parts[2];
-    const moduleId = parts[3];
-    const channel = parts[4];
-    const attribute = parts[6];  // brightness colortemp 等
-
-    const key = `${subType}_${moduleId}_${channel}_${attribute}`;
-    const val = Number(msg.payload);
-
-    if (!isNaN(val)) {
-        flow.set(key, val);
-        node.status({ fill: "green", shape: "ring", text: `${key} = ${val}` });
-    }
-    return null;
-}
-
 switch (deviceType) {
     case "light": {
-        const subType = parts[2];      // single, dual, relay, scene
-        const moduleId = parseInt(parts[3]);  // 模組 ID
-        const channel = parts[4];      // 通道 ID
+        const subType = parts[2];           // single, dual, relay, scene
+        const moduleId = parseInt(parts[3]);
+        const channel = parts[4];
+
+        // 🔹在 light 裡處理 set/brightness、set/colortemp
+        // 範例: homeassistant/light/single/13/1/set/brightness
+        if (parts.length >= 7 && parts[5] === "set") {
+            const attribute = parts[6];     // brightness / colortemp 等
+            const key = `${subType}_${moduleId}_${channel}_${attribute}`;
+            const val = Number(msg.payload);
+
+            if (!isNaN(val)) {
+                flow.set(key, val);
+                node.status({
+                    fill: "green",
+                    shape: "ring",
+                    text: `${key} = ${val}`
+                });
+            }
+
+            // 若不是亮度/色溫，就單純當 cache 用，不往下發指令
+            if (attribute !== "brightness" && attribute !== "colortemp") {
+                return null;
+            }
+
+            // 亮度 / 色溫：順便幫忙補一發 /set，讓它走原本 single/dual 的邏輯
+            const stateKey = `${subType}_${moduleId}_${channel}_state`;
+            let state = flow.get(stateKey);
+
+            // 🔧 修正：收到亮度/色溫指令時，智能判斷開關狀態
+            if (attribute === "brightness") {
+                // 亮度 > 0 自動開燈，亮度 = 0 關燈
+                if (val > 0) {
+                    state = "ON";
+                    flow.set(stateKey, "ON");
+                } else {
+                    state = "OFF";
+                    flow.set(stateKey, "OFF");
+                }
+            } else if (attribute === "colortemp") {
+                // 色溫調整時，如果燈是關的就開燈
+                if (!state || state === "OFF") {
+                    state = "ON";
+                    flow.set(stateKey, "ON");
+                }
+            }
+
+            // 如果狀態仍未知（理論上不會發生），預設為 ON
+            if (!state) {
+                state = "ON";
+                flow.set(stateKey, "ON");
+            }
+
+            msg.topic = `homeassistant/light/${subType}/${moduleId}/${channel}/set`;
+            msg.payload = state;
+            // 不 return，繼續往下跑 switch(subType)
+        }
 
         switch (subType) {
             case "relay": {
@@ -191,12 +231,14 @@ switch (deviceType) {
                 if (typeof colortemp !== "number") colortemp = DEFAULT_COLORTEMP;
                 colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);
                 const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);
+
                 function buildCommand(moduleId, reg, value, speed = 0x05) {
                     const hi = (reg >> 8) & 0xFF;
                     const lo = reg & 0xFF;
                     const cmd = Buffer.from([moduleId, 0x06, hi, lo, speed, value]);
                     return generalCommandBuild(cmd);
                 }
+
                 const brValue = (state === "ON") ? brightness : 0;
                 const cmdBrightness = buildCommand(moduleId, regs[0], brValue);
                 const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);
@@ -275,7 +317,7 @@ switch (deviceType) {
                             mqtt_queue.push(sceneBrightnessMsg);
                         }
 
-                        // 更新組合型場景設備UI（如走廊間照 11-1--11-2、展示櫃 12-3--12-4）
+                        // 更新組合型場景設備UI
                         const sceneGroups = [
                             { ids: ["11-1", "11-2"], sceneId: "11-1--11-2" },  // 走廊間照
                             { ids: ["12-3", "12-4"], sceneId: "12-3--12-4" },  // 展示櫃
@@ -286,7 +328,6 @@ switch (deviceType) {
                         ];
 
                         for (const group of sceneGroups) {
-                            // 檢查當前觸發的燈光是否包含此組合的所有成員
                             const allIncluded = group.ids.every(id => lights.includes(id));
                             if (allIncluded) {
                                 let groupSceneStateMsg = { ...msg };
@@ -388,6 +429,7 @@ switch (deviceType) {
             }
         }
     }
+
     case "cover": {
         // 格式 開啟的relay_開啟的relay/關閉的relay_關閉的relay
         // payload 範例 1_2/3 表示開啟 relay 1 和 2 關閉 relay 3
@@ -419,6 +461,7 @@ switch (deviceType) {
         node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
+
     case "hvac": {
         const s200Id = parseInt(parts[2]);      // S200 模組 ID
         const hvacId = parseInt(parts[3]);      // HVAC 設備 ID 1 2 3
@@ -493,6 +536,7 @@ switch (deviceType) {
         node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
+
     case "memory": {
         // 記憶儲存處理
         // 主題格式 homeassistant/memory/sceneId/operation/save/set
@@ -568,6 +612,7 @@ switch (deviceType) {
         }
         return null;
     }
+
     case "scene": {
         // 場景執行處理
         // 主題格式 homeassistant/scene/sceneId/operation/execute/set
@@ -728,6 +773,7 @@ switch (deviceType) {
         global.set("mqtt_queue", mqtt_queue);
         return null;
     }
+
     case "query": {
         const subType = parts[2];      // light cover
         const moduleId = parseInt(parts[3]);  // 模組 ID
@@ -773,7 +819,6 @@ switch (deviceType) {
         }
         const cmdBuffer = generalCommandBuild(frame);
 
-
         // 放入 modbus_queue 統一管理發送
         let modbus_queue = global.get("modbus_queue") || [];
         modbus_queue.push({ payload: cmdBuffer, deviceID: moduleId, type: "query", deviceType: "query", subType, channel });
@@ -784,6 +829,7 @@ switch (deviceType) {
         node.send([null, { topic: "trigger_modbus_queue", payload: "process" }]);
         return null;
     }
+
     default: {
         node.warn(`unknown device type: ${deviceType}`);
         return null;
