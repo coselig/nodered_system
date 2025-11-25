@@ -1,0 +1,43 @@
+[
+    {
+        "id": "inject_query_memory",
+        "type": "inject",
+        "z": "YOUR_FLOW_ID",
+        "name": "🔍 查詢所有記憶",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "homeassistant/memory/query/all",
+        "x": 150,
+        "y": 2200,
+        "wires": [
+            [
+                "YOUR_PROCESSOR_NODE_ID"
+            ]
+        ]
+    },
+    {
+        "id": "debug_memory_query",
+        "type": "debug",
+        "z": "YOUR_FLOW_ID",
+        "name": "記憶查詢結果",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 2200,
+        "wires": []
+    }
+]

@@ -72,7 +72,7 @@ function buildCommand(moduleId, reg, value, speed = 0x05) {
 }
 
 const parts = String(msg.topic || "").split("/");
-const deviceType = parts[1];     // light, cover
+const deviceType = parts[1];     // light, cover, memory
 const subType = parts[2];        // single, dual, relay, scene, general
 const moduleId = parseInt(parts[3]);
 const channel = parts[4];
@@ -84,6 +84,225 @@ debugLog('topic', `Device: ${deviceType}, SubType: ${subType}, Module: ${moduleI
 
 let modbusMessages = [];
 let mqttMessages = [];
+
+// ========== MEMORY DEVICE (記憶功能 + 查詢) ==========
+if (deviceType === "memory") {
+    const sceneId = parts[2];      // 0x02, 0x03, query, etc.
+    const operation = parts[3];    // 0x01 (ON), 0x02 (OFF), all
+    const action = parts[4];       // save, execute, get
+
+    // ===== MEMORY QUERY (查詢所有記憶) =====
+    if (sceneId === "query" && operation === "all") {
+        // 格式: homeassistant/memory/query/all
+        debugLog('cache', `=== 查詢所有記憶狀態 ===`);
+
+        const SCENE_NAMES = {
+            "0x02": "會議室",
+            "0x03": "公共區",
+            "0x04": "戶外",
+            "0x05": "H40二樓"
+        };
+
+        const OPERATION_NAMES = {
+            "0x01": "ON",
+            "0x02": "OFF"
+        };
+
+        let allMemories = [];
+        let totalCount = 0;
+
+        // 檢查所有可能的記憶組合
+        for (const sceneId of Object.keys(SCENE_NAMES)) {
+            for (const operation of Object.keys(OPERATION_NAMES)) {
+                const memoryKey = `memory_${sceneId}_${operation}`;
+                const memoryRecord = flow.get(memoryKey);
+
+                if (memoryRecord) {
+                    const deviceCount = Object.keys(memoryRecord.devices || {}).length;
+                    const sceneName = SCENE_NAMES[sceneId];
+                    const opName = OPERATION_NAMES[operation];
+
+                    allMemories.push({
+                        key: memoryKey,
+                        scene_id: sceneId,
+                        operation: operation,
+                        scene_name: memoryRecord.scene_name,
+                        display_name: `${sceneName}_${opName}`,
+                        device_count: deviceCount,
+                        timestamp: memoryRecord.timestamp,
+                        devices: memoryRecord.devices
+                    });
+
+                    totalCount++;
+
+                    debugLog('cache', `✅ ${memoryKey}: ${memoryRecord.scene_name} (${deviceCount}個設備) - ${memoryRecord.timestamp}`);
+                }
+            }
+        }
+
+        if (totalCount === 0) {
+            debugLog('cache', `⚠️ 沒有找到任何記憶`);
+        } else {
+            debugLog('cache', `📊 總共找到 ${totalCount} 組記憶`);
+        }
+
+        // 輸出記憶摘要
+        const summary = {
+            total_count: totalCount,
+            memories: allMemories.map(m => ({
+                key: m.key,
+                display_name: m.display_name,
+                device_count: m.device_count,
+                timestamp: m.timestamp
+            })),
+            timestamp: new Date().toISOString()
+        };
+
+        node.status({
+            fill: "blue",
+            shape: "ring",
+            text: `記憶查詢: ${totalCount} 組`
+        });
+
+        // 返回完整的記憶資料供 Debug 檢視
+        return [[{
+            payload: summary,
+            allMemories: allMemories  // 完整資料（包含設備詳情）
+        }], []];
+    }
+
+    // ===== MEMORY SAVE (儲存記憶) =====
+    if (action === "save") {
+        // 格式: homeassistant/memory/{sceneId}/{operation}/save/set
+        // payload: JSON { scene_name, devices, timestamp }
+
+        // 儲存記憶：讀取所有設備當前狀態並儲存
+        let memoryData;
+        try {
+            memoryData = JSON.parse(msg.payload);
+        } catch (e) {
+            debugLog('topic', `記憶指令 JSON 解析失敗: ${e.message}`);
+            return null;
+        }
+
+        const devices = memoryData.devices || [];
+        const memoryKey = `memory_${sceneId}_${operation}`;
+        const savedStates = {};
+
+        debugLog('cache', `=== 儲存記憶 ${memoryKey} ===`);
+        debugLog('cache', `場景名稱: ${memoryData.scene_name}`);
+        debugLog('cache', `設備數量: ${devices.length}`);
+
+        // 讀取每個設備的當前狀態
+        for (const deviceTopic of devices) {
+            const deviceParts = deviceTopic.split("/");
+            const devType = deviceParts[1];        // light
+            const devSubType = deviceParts[2];     // single, dual
+            const devModuleId = deviceParts[3];    // 13, 14
+            const devChannel = deviceParts[4];     // 1, a, b
+
+            if (devType === "light") {
+                const stateKey = `${devSubType}_${devModuleId}_${devChannel}_state`;
+                const brightnessKey = `${devSubType}_${devModuleId}_${devChannel}_brightness`;
+                const colortempKey = `${devSubType}_${devModuleId}_${devChannel}_colortemp`;
+
+                const state = flow.get(stateKey) || "OFF";
+                const brightness = flow.get(brightnessKey) || DEFAULT_BRIGHTNESS;
+                const colortemp = flow.get(colortempKey) || DEFAULT_COLORTEMP;
+
+                savedStates[deviceTopic] = {
+                    state,
+                    brightness,
+                    colortemp: devSubType === "dual" ? colortemp : undefined
+                };
+
+                debugLog('cache', `  ${deviceTopic}: ${state} ${brightness}%${devSubType === 'dual' ? ` ${colortemp}K` : ''}`);
+            }
+        }
+
+        // 儲存記憶資料
+        const memoryRecord = {
+            scene_name: memoryData.scene_name,
+            timestamp: memoryData.timestamp || new Date().toISOString(),
+            devices: savedStates
+        };
+
+        flow.set(memoryKey, memoryRecord);
+        debugLog('cache', `✅ 記憶已儲存: ${memoryKey}`);
+
+        node.status({
+            fill: "blue",
+            shape: "dot",
+            text: `記憶: ${memoryData.scene_name} (${devices.length}個設備)`
+        });
+
+        return null;
+    }
+}
+
+// ========== SCENE DEVICE (場景執行，包含記憶執行) ==========
+if (deviceType === "scene") {
+    // 格式: homeassistant/scene/{sceneId}/{operation}/execute/set
+    const sceneId = parts[2];      // 0x02, 0x03, etc.
+    const operation = parts[3];    // 0x01 (ON), 0x02 (OFF)
+    const action = parts[4];       // execute
+
+    if (action === "execute") {
+        // 執行記憶場景
+        const memoryKey = `memory_${sceneId}_${operation}`;
+        const memoryRecord = flow.get(memoryKey);
+
+        if (!memoryRecord) {
+            debugLog('scene', `⚠️ 找不到記憶: ${memoryKey}`);
+            return null;
+        }
+
+        debugLog('scene', `=== 執行記憶場景 ${memoryKey} ===`);
+        debugLog('scene', `場景名稱: ${memoryRecord.scene_name}`);
+        debugLog('scene', `儲存時間: ${memoryRecord.timestamp}`);
+
+        const devices = memoryRecord.devices || {};
+        const deviceTopics = Object.keys(devices);
+
+        // 對每個設備發送 MQTT 指令
+        for (const deviceTopic of deviceTopics) {
+            const savedState = devices[deviceTopic];
+            const deviceParts = deviceTopic.split("/");
+            const devSubType = deviceParts[2];     // single, dual
+            const devModuleId = deviceParts[3];
+            const devChannel = deviceParts[4];
+
+            // 先更新快取
+            const stateKey = `${devSubType}_${devModuleId}_${devChannel}_state`;
+            const brightnessKey = `${devSubType}_${devModuleId}_${devChannel}_brightness`;
+
+            flow.set(stateKey, savedState.state);
+            flow.set(brightnessKey, savedState.brightness);
+
+            if (devSubType === "dual" && savedState.colortemp !== undefined) {
+                const colortempKey = `${devSubType}_${devModuleId}_${devChannel}_colortemp`;
+                flow.set(colortempKey, savedState.colortemp);
+            }
+
+            debugLog('scene', `  ${deviceTopic}: ${savedState.state} ${savedState.brightness}%${savedState.colortemp ? ` ${savedState.colortemp}K` : ''}`);
+
+            // 發送控制指令
+            mqttMessages.push({
+                topic: `${deviceTopic}/set`,
+                payload: savedState.state
+            });
+        }
+
+        node.status({
+            fill: "yellow",
+            shape: "ring",
+            text: `執行記憶: ${memoryRecord.scene_name} (${deviceTopics.length}個設備)`
+        });
+
+        // 直接返回 MQTT 訊息，不需要 Modbus
+        return [[], mqttMessages];
+    }
+}
 
 // ========== LIGHT DEVICE ==========
 if (deviceType === "light") {

@@ -1,8 +1,8 @@
 [
     {
-        "id": "108057c6b0820334",
+        "id": "b421607170cc0304",
         "type": "group",
-        "z": "14580213f897af9a",
+        "z": "2489f740882ffd1e",
         "name": "完整整合測試：Light (Single/Dual/Relay) + Cover + Scene",
         "style": {
             "label": true,
@@ -11,31 +11,33 @@
             "fill-opacity": "0.5"
         },
         "nodes": [
-            "a8db97e3282d584e",
-            "50313094f488b340",
-            "d59a4d2f00fac520",
-            "4f08be38e8e5a989",
-            "c543b1d15612a8c6",
-            "846a05abdd99da9a",
-            "e67cfaa863dbcbf7",
-            "91359a179be62f4c",
-            "d9e61560c29c49a4",
-            "c7e2c547c268c2ae",
-            "hmi_tcp_in",
-            "hmi_processor",
-            "hmi_debug",
-            "comment_hmi"
+            "97fe3366e7f63916",
+            "7fad3e3961c38f68",
+            "c3dbea9b589d5f92",
+            "eaab0b11d13ce29c",
+            "ad3a1531084040c2",
+            "0a120415cdf078e6",
+            "5e502cf6efc922db",
+            "e3136325dd4d62c0",
+            "83176ffd47a85872",
+            "d20029a6b8125922",
+            "759dfd1d34dc8469",
+            "fa90290b455867d2",
+            "0ab4658eca0e0bb1",
+            "d5d37d8b0a3705e6",
+            "7d1d2d36c7ac00b3",
+            "92ebd28bb214682f"
         ],
         "x": 74,
-        "y": 1979,
-        "w": 1172,
-        "h": 594
+        "y": 259,
+        "w": 1182,
+        "h": 554
     },
     {
-        "id": "a8db97e3282d584e",
+        "id": "97fe3366e7f63916",
         "type": "mqtt in",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "MQTT 訂閱所有控制",
         "topic": "homeassistant/+/+/+/+/set/#",
         "qos": "0",
@@ -45,45 +47,46 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 190,
-        "y": 2100,
+        "x": 200,
+        "y": 380,
         "wires": [
             [
-                "50313094f488b340"
+                "7fad3e3961c38f68"
             ]
         ]
     },
     {
-        "id": "50313094f488b340",
+        "id": "7fad3e3961c38f68",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "完整處理器 (All Devices)",
-        "func": "// 完整版處理器：支援 Single/Dual/Relay 燈光、Cover、Scene\n\n// Debug 控制 (透過 global context 設定)\nconst debugConfig = global.get('debug_config') || {\n    topic: true,        // 顯示收到的 Topic\n    cache: true,        // 顯示快取操作\n    modbus: true,       // 顯示 Modbus 指令詳情\n    mqtt: true,         // 顯示 MQTT 狀態回報\n    scene: true,        // 顯示 Scene 處理\n    query: true         // 顯示 Query 查詢\n};\n\nfunction debugLog(category, message) {\n    if (debugConfig[category]) {\n        node.warn(message);\n    }\n}\n\nconst DEFAULT_BRIGHTNESS = 100;\nconst DEFAULT_COLORTEMP = 250;\nconst MIN_MIRED = 167;\nconst MAX_MIRED = 333;\nconst BRIGHTNESS_TIME = 0x05;\nconst CHANNEL_REGISTER_MAP = {\n    \"1\": 0x082A,\n    \"2\": 0x082B,\n    \"3\": 0x082C,\n    \"4\": 0x082D,\n    \"a\": [0x082A, 0x082B],\n    \"b\": [0x082C, 0x082D]\n};\nconst CHANNEL_COIL_MAP = {\n    \"1\": 0x0000,\n    \"2\": 0x0001,\n    \"3\": 0x0002,\n    \"4\": 0x0003\n};\n\nfunction generalCommandBuild(frame) {\n    function crc16(buf) {\n        let crc = 0xFFFF;\n        for (const b of buf) {\n            crc ^= b;\n            for (let i = 0; i < 8; i++) {\n                crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);\n            }\n        }\n        return crc;\n    }\n    const crc = crc16(frame);\n    return Buffer.concat([frame, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])]);\n}\n\nfunction clamp(value, min, max) {\n    return value < min ? min : value > max ? max : value;\n}\n\nfunction buildCommand(moduleId, reg, value, speed = 0x05) {\n    const hi = (reg >> 8) & 0xFF;\n    const lo = reg & 0xFF;\n    const cmd = Buffer.from([moduleId, 0x06, hi, lo, speed, value]);\n    return generalCommandBuild(cmd);\n}\n\nconst parts = String(msg.topic || \"\").split(\"/\");\nconst deviceType = parts[1];     // light, cover\nconst subType = parts[2];        // single, dual, relay, scene, general\nconst moduleId = parseInt(parts[3]);\nconst channel = parts[4];\n\ndebugLog('topic', `=== 收到訊息 ===`);\ndebugLog('topic', `Topic: ${msg.topic}`);\ndebugLog('topic', `Payload: ${msg.payload}`);\ndebugLog('topic', `Device: ${deviceType}, SubType: ${subType}, Module: ${moduleId}, Channel: ${channel}`);\n\nlet modbusMessages = [];\nlet mqttMessages = [];\n\n// ========== LIGHT DEVICE ==========\nif (deviceType === \"light\") {\n    const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;\n\n    // 處理 set/brightness 和 set/colortemp\n    if (parts.length >= 7 && parts[5] === \"set\") {\n        const attribute = parts[6];\n        // Scene 的 key 格式不同：scene_single_12-3--12-4_brightness\n        let key;\n        if (subType === \"scene\") {\n            key = `scene_${parts[3]}_${parts[4]}_${attribute}`;\n        } else {\n            key = `${subType}_${moduleId}_${channel}_${attribute}`;\n        }\n        const val = Number(msg.payload);\n\n        if (!isNaN(val)) {\n            flow.set(key, val);\n            debugLog('cache', `儲存 ${key} = ${val}`);\n        }\n\n        if (attribute === \"brightness\" || attribute === \"colortemp\") {\n            // 對於 dual 燈光的色溫調整，只發送色溫指令，不觸發完整控制流程\n            if (subType === \"dual\" && attribute === \"colortemp\") {\n                const regs = CHANNEL_REGISTER_MAP[channel];\n                if (!regs) {\n                    debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n                    return null;\n                }\n                \n                let colortemp = val;\n                colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);\n                const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);\n                \n                const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);\n                \n                debugLog('modbus', `=== Modbus 指令 (Dual Colortemp Only) ===`);\n                debugLog('modbus', `色溫: ${cmdColortemp.toString('hex')}`);\n                \n                modbusMessages.push({ payload: cmdColortemp, subType, moduleId, channel, colortemp });\n                \n                node.status({\n                    fill: \"yellow\",\n                    shape: \"dot\",\n                    text: `${moduleId}-${channel}: Colortemp ${colortemp}K`\n                });\n                \n                return [modbusMessages, []];\n            }\n            \n            // 亮度或色溫變更時，保持當前開關狀態不變\n            // 0% 不會自動變成 OFF，需要明確發送 OFF 指令才會關閉\n            const stateKey = `${subType}_${moduleId}_${channel}_state`;\n            const state = flow.get(stateKey) || \"ON\";\n            msg.topic = `homeassistant/light/${subType}/${moduleId}/${channel}/set`;\n            msg.payload = state;\n        } else {\n            return null;\n        }\n    }\n\n    // ===== RELAY =====\n    if (subType === \"relay\") {\n        const addr = CHANNEL_COIL_MAP[channel];\n        if (addr === undefined) {\n            debugLog('modbus', `找不到 Relay 通道 ${channel}`);\n            return null;\n        }\n\n        const state = (msg.payload === \"ON\") ? \"ON\" : \"OFF\";\n        const valHi = (msg.payload === \"ON\") ? 0xFF : 0x00;\n        const valLo = 0x00;\n        const hi = (addr >> 8) & 0xFF;\n        const lo = addr & 0xFF;\n        const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);\n        const cmd = generalCommandBuild(frame);\n\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        debugLog('modbus', `=== Modbus 指令 (Relay) ===`);\n        debugLog('modbus', `Coil 地址: 0x${addr.toString(16).padStart(4, '0')}`);\n        debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmd, subType, moduleId, channel, state });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `Relay ${moduleId}-${channel}: ${state}`\n        });\n    }\n\n    // ===== SINGLE =====\n    else if (subType === \"single\") {\n        const reg = CHANNEL_REGISTER_MAP[channel];\n        if (!reg) {\n            debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n\n        let state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);\n        if (typeof brightness !== \"number\") brightness = DEFAULT_BRIGHTNESS;\n        brightness = clamp(Math.round(brightness), 0, 100);\n\n        const brValue = (state === \"ON\") ? brightness : 0;\n        const speed = (state === \"OFF\") ? 0x00 : BRIGHTNESS_TIME;\n        const cmd = buildCommand(moduleId, reg, brValue, speed);\n\n        debugLog('modbus', `=== Modbus 指令 (Single) ===`);\n        debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmd, subType, moduleId, channel, state, brightness });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        if (state === \"ON\") {\n            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n        }\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `${moduleId}-${channel}: ${state} ${brightness}%`\n        });\n    }\n\n    // ===== DUAL =====\n    else if (subType === \"dual\") {\n        const regs = CHANNEL_REGISTER_MAP[channel];\n        if (!regs) {\n            debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n\n        let state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);\n        if (typeof brightness !== \"number\") brightness = DEFAULT_BRIGHTNESS;\n        brightness = clamp(Math.round(brightness), 0, 100);\n\n        let colortemp = flow.get(`${subType}_${moduleId}_${channel}_colortemp`);\n        if (typeof colortemp !== \"number\") colortemp = DEFAULT_COLORTEMP;\n        colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);\n        const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);\n\n        const brValue = (state === \"ON\") ? brightness : 0;\n        const cmdBrightness = buildCommand(moduleId, regs[0], brValue);\n        const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);\n\n        debugLog('modbus', `=== Modbus 指令 (Dual) ===`);\n        debugLog('modbus', `亮度: ${cmdBrightness.toString('hex')}`);\n        debugLog('modbus', `色溫: ${cmdColortemp.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmdBrightness, subType, moduleId, channel, state, brightness, colortemp });\n        modbusMessages.push({ payload: cmdColortemp, subType, moduleId, channel, state, brightness, colortemp });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        if (state === \"ON\") {\n            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n            mqttMessages.push({ topic: `${baseTopic}/colortemp`, payload: colortemp });\n        }\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `${moduleId}-${channel}: ${state} ${brightness}% ${colortemp}K`\n        });\n    }\n\n    // ===== SCENE =====\n    else if (subType === \"scene\") {\n        const sceneType = parts[3];  // single, dual\n        const lights = parts[4].split(\"--\");  // 12-1--12-2\n        const state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        \n        // Scene 快取 key 格式: scene_single_12-3--12-4_brightness\n        const groupBrightnessKey = `scene_${sceneType}_${parts[4]}_brightness`;\n        const groupColortempKey = `scene_${sceneType}_${parts[4]}_colortemp`;\n        const groupBrightness = flow.get(groupBrightnessKey);\n        const groupColortemp = flow.get(groupColortempKey);\n\n        debugLog('scene', `=== Scene 控制 ===`);\n        debugLog('scene', `場景類型: ${sceneType}`);\n        debugLog('scene', `燈光列表: ${lights.join(\", \")}`);\n        debugLog('scene', `狀態: ${state}`);\n\n        // 發送指令到每個燈光\n        for (let light of lights) {\n            const [lightId, lightChannel] = light.split(\"-\");\n            \n            // 先直接更新個別燈光的快取（不透過 MQTT）\n            if (state === \"ON\" && groupBrightness !== undefined) {\n                flow.set(`${sceneType}_${lightId}_${lightChannel}_brightness`, groupBrightness);\n                debugLog('scene', `更新快取: ${sceneType}_${lightId}_${lightChannel}_brightness = ${groupBrightness}`);\n            }\n            if (state === \"ON\" && groupColortemp !== undefined && sceneType === \"dual\") {\n                flow.set(`${sceneType}_${lightId}_${lightChannel}_colortemp`, groupColortemp);\n                debugLog('scene', `更新快取: ${sceneType}_${lightId}_${lightChannel}_colortemp = ${groupColortemp}`);\n            }\n            \n            // 然後發送開關指令（會使用剛更新的快取）\n            const lightTopic = `homeassistant/light/${sceneType}/${lightId}/${lightChannel}/set`;\n            mqttMessages.push({ topic: lightTopic, payload: state });\n        }\n\n        // 更新場景本身的狀態\n        mqttMessages.push({ topic: `homeassistant/light/scene/${sceneType}/${parts[4]}/state`, payload: state });\n\n        node.status({\n            fill: state === \"ON\" ? \"yellow\" : \"grey\",\n            shape: \"ring\",\n            text: `Scene: ${lights.length} 燈 ${state}`\n        });\n    }\n}\n\n// ========== COVER DEVICE ==========\nelse if (deviceType === \"cover\") {\n    // 格式: homeassistant/cover/general/12/set\n    // payload: \"1_2/3\" 表示開啟 relay 1 和 2，關閉 relay 3\n    \n    const relays = msg.payload.split(\"/\");\n    const on_relays = relays[0] ? relays[0].split(\"_\").map(Number) : [];\n    const off_relays = (relays[1] && relays[1].length > 0) ? relays[1].split(\"_\").map(Number) : [];\n\n    let output = 0x00;\n    for (let relay of on_relays) {\n        output |= (1 << (relay - 1));\n    }\n    for (let relay of off_relays) {\n        output &= ~(1 << (relay - 1));\n    }\n\n    const frame = Buffer.from([moduleId, 0x06, 0x01, 0x9b, 0x10, output]);\n    const cmd = generalCommandBuild(frame);\n\n    debugLog('modbus', `=== Modbus 指令 (Cover) ===`);\n    debugLog('modbus', `開啟 Relay: ${on_relays.join(\", \")}`);\n    debugLog('modbus', `關閉 Relay: ${off_relays.join(\", \")}`);\n    debugLog('modbus', `Bit Mask: 0b${output.toString(2).padStart(8, '0')} (0x${output.toString(16).padStart(2, '0')})`);\n    debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n    modbusMessages.push({ payload: cmd, deviceType, moduleId, on_relays, off_relays });\n\n    node.status({\n        fill: \"blue\",\n        shape: \"dot\",\n        text: `Cover: ON[${on_relays}] OFF[${off_relays}]`\n    });\n}\n\n\n// ========== QUERY DEVICE (查詢) ==========\nelse if (deviceType === \"query\") {\n    // 格式: homeassistant/query/{subType}/{moduleId}/{channel}\n    // subType: single, dual, relay\n    \n    const querySubType = subType;  // single, dual, relay\n    \n    debugLog('query', `=== Query 查詢 ===`);\n    debugLog('query', `類型: ${querySubType}, 模組: ${moduleId}, 通道: ${channel}`);\n    \n    let frame;\n    \n    if (querySubType === \"single\" || querySubType === \"dual\") {\n        // 查詢 Single/Dual Light: Read Holding Registers (0x03)\n        const reg = CHANNEL_REGISTER_MAP[channel];\n        if (!reg) {\n            debugLog('query', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n        \n        const startReg = Array.isArray(reg) ? reg[0] : reg;  // dual 取第一個寄存器\n        const quantity = Array.isArray(reg) ? 2 : 1;  // dual 讀 2 個，single 讀 1 個\n        \n        const regHi = (startReg >> 8) & 0xFF;\n        const regLo = startReg & 0xFF;\n        const qtyHi = (quantity >> 8) & 0xFF;\n        const qtyLo = quantity & 0xFF;\n        \n        frame = Buffer.from([moduleId, 0x03, regHi, regLo, qtyHi, qtyLo]);\n        \n        debugLog('query', `讀取寄存器: 0x${startReg.toString(16).padStart(4, '0')}, 數量: ${quantity}`);\n    }\n    else if (querySubType === \"relay\") {\n        // 查詢 Relay: Read Coils (0x01)\n        const addr = CHANNEL_COIL_MAP[channel] || 0x0000;\n        const quantity = 4;  // 讀取 4 個 coils\n        \n        const addrHi = (addr >> 8) & 0xFF;\n        const addrLo = addr & 0xFF;\n        const qtyHi = (quantity >> 8) & 0xFF;\n        const qtyLo = quantity & 0xFF;\n        \n        frame = Buffer.from([moduleId, 0x01, addrHi, addrLo, qtyHi, qtyLo]);\n        \n        debugLog('query', `讀取線圈: 0x${addr.toString(16).padStart(4, '0')}, 數量: ${quantity}`);\n    }\n    else {\n        debugLog('query', `不支援的查詢類型: ${querySubType}`);\n        return null;\n    }\n    \n    const cmd = generalCommandBuild(frame);\n    \n    debugLog('modbus', `=== Modbus 查詢指令 ===`);\n    debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n    \n    // 將查詢資訊附加到每個訊息中，供 Feedback 使用\n    const queryMsg = { \n        payload: cmd, \n        deviceType: \"query\", \n        subType: querySubType, \n        moduleId, \n        channel,\n        queryInfo: { type: querySubType, channel: channel }\n    };\n    modbusMessages.push(queryMsg);\n    \n    node.status({\n        fill: \"cyan\",\n        shape: \"ring\",\n        text: `Query ${querySubType} ${moduleId}-${channel}`\n    });\n}\n\n\nelse {\n    debugLog('topic', `不支援的設備類型: ${deviceType}`);\n    return null;\n}\n\n// 返回: [Modbus 指令, MQTT 狀態]\nreturn [modbusMessages, mqttMessages];",
+        "func": "// 完整版處理器：支援 Single/Dual/Relay 燈光、Cover、Scene\n\n// Debug 控制 (透過 global context 設定)\nconst debugConfig = global.get('debug_config') || {\n    topic: true,        // 顯示收到的 Topic\n    cache: true,        // 顯示快取操作\n    modbus: true,       // 顯示 Modbus 指令詳情\n    mqtt: true,         // 顯示 MQTT 狀態回報\n    scene: true,        // 顯示 Scene 處理\n    query: true         // 顯示 Query 查詢\n};\n\nfunction debugLog(category, message) {\n    if (debugConfig[category]) {\n        node.warn(message);\n    }\n}\n\nconst DEFAULT_BRIGHTNESS = 100;\nconst DEFAULT_COLORTEMP = 250;\nconst MIN_MIRED = 167;\nconst MAX_MIRED = 333;\nconst BRIGHTNESS_TIME = 0x05;\nconst CHANNEL_REGISTER_MAP = {\n    \"1\": 0x082A,\n    \"2\": 0x082B,\n    \"3\": 0x082C,\n    \"4\": 0x082D,\n    \"a\": [0x082A, 0x082B],\n    \"b\": [0x082C, 0x082D]\n};\nconst CHANNEL_COIL_MAP = {\n    \"1\": 0x0000,\n    \"2\": 0x0001,\n    \"3\": 0x0002,\n    \"4\": 0x0003\n};\n\nfunction generalCommandBuild(frame) {\n    function crc16(buf) {\n        let crc = 0xFFFF;\n        for (const b of buf) {\n            crc ^= b;\n            for (let i = 0; i < 8; i++) {\n                crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);\n            }\n        }\n        return crc;\n    }\n    const crc = crc16(frame);\n    return Buffer.concat([frame, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])]);\n}\n\nfunction clamp(value, min, max) {\n    return value < min ? min : value > max ? max : value;\n}\n\nfunction buildCommand(moduleId, reg, value, speed = 0x05) {\n    const hi = (reg >> 8) & 0xFF;\n    const lo = reg & 0xFF;\n    const cmd = Buffer.from([moduleId, 0x06, hi, lo, speed, value]);\n    return generalCommandBuild(cmd);\n}\n\nconst parts = String(msg.topic || \"\").split(\"/\");\nconst deviceType = parts[1];     // light, cover, memory\nconst subType = parts[2];        // single, dual, relay, scene, general\nconst moduleId = parseInt(parts[3]);\nconst channel = parts[4];\n\ndebugLog('topic', `=== 收到訊息 ===`);\ndebugLog('topic', `Topic: ${msg.topic}`);\ndebugLog('topic', `Payload: ${msg.payload}`);\ndebugLog('topic', `Device: ${deviceType}, SubType: ${subType}, Module: ${moduleId}, Channel: ${channel}`);\n\nlet modbusMessages = [];\nlet mqttMessages = [];\n\n// ========== MEMORY DEVICE (記憶功能) ==========\nif (deviceType === \"memory\") {\n    // 格式: homeassistant/memory/{sceneId}/{operation}/save/set\n    // payload: JSON { scene_name, devices, timestamp }\n    const sceneId = parts[2];      // 0x02, 0x03, etc.\n    const operation = parts[3];    // 0x01 (ON), 0x02 (OFF)\n    const action = parts[4];       // save, execute\n\n    if (action === \"save\") {\n        // 儲存記憶：讀取所有設備當前狀態並儲存\n        let memoryData;\n        try {\n            memoryData = JSON.parse(msg.payload);\n        } catch (e) {\n            debugLog('topic', `記憶指令 JSON 解析失敗: ${e.message}`);\n            return null;\n        }\n\n        const devices = memoryData.devices || [];\n        const memoryKey = `memory_${sceneId}_${operation}`;\n        const savedStates = {};\n\n        debugLog('cache', `=== 儲存記憶 ${memoryKey} ===`);\n        debugLog('cache', `場景名稱: ${memoryData.scene_name}`);\n        debugLog('cache', `設備數量: ${devices.length}`);\n\n        // 讀取每個設備的當前狀態\n        for (const deviceTopic of devices) {\n            const deviceParts = deviceTopic.split(\"/\");\n            const devType = deviceParts[1];        // light\n            const devSubType = deviceParts[2];     // single, dual\n            const devModuleId = deviceParts[3];    // 13, 14\n            const devChannel = deviceParts[4];     // 1, a, b\n\n            if (devType === \"light\") {\n                const stateKey = `${devSubType}_${devModuleId}_${devChannel}_state`;\n                const brightnessKey = `${devSubType}_${devModuleId}_${devChannel}_brightness`;\n                const colortempKey = `${devSubType}_${devModuleId}_${devChannel}_colortemp`;\n\n                const state = flow.get(stateKey) || \"OFF\";\n                const brightness = flow.get(brightnessKey) || DEFAULT_BRIGHTNESS;\n                const colortemp = flow.get(colortempKey) || DEFAULT_COLORTEMP;\n\n                savedStates[deviceTopic] = {\n                    state,\n                    brightness,\n                    colortemp: devSubType === \"dual\" ? colortemp : undefined\n                };\n\n                debugLog('cache', `  ${deviceTopic}: ${state} ${brightness}%${devSubType === 'dual' ? ` ${colortemp}K` : ''}`);\n            }\n        }\n\n        // 儲存記憶資料\n        const memoryRecord = {\n            scene_name: memoryData.scene_name,\n            timestamp: memoryData.timestamp || new Date().toISOString(),\n            devices: savedStates\n        };\n\n        flow.set(memoryKey, memoryRecord);\n        debugLog('cache', `✅ 記憶已儲存: ${memoryKey}`);\n\n        node.status({\n            fill: \"blue\",\n            shape: \"dot\",\n            text: `記憶: ${memoryData.scene_name} (${devices.length}個設備)`\n        });\n\n        return null;\n    }\n}\n\n// ========== SCENE DEVICE (場景執行，包含記憶執行) ==========\nif (deviceType === \"scene\") {\n    // 格式: homeassistant/scene/{sceneId}/{operation}/execute/set\n    const sceneId = parts[2];      // 0x02, 0x03, etc.\n    const operation = parts[3];    // 0x01 (ON), 0x02 (OFF)\n    const action = parts[4];       // execute\n\n    if (action === \"execute\") {\n        // 執行記憶場景\n        const memoryKey = `memory_${sceneId}_${operation}`;\n        const memoryRecord = flow.get(memoryKey);\n\n        if (!memoryRecord) {\n            debugLog('scene', `⚠️ 找不到記憶: ${memoryKey}`);\n            return null;\n        }\n\n        debugLog('scene', `=== 執行記憶場景 ${memoryKey} ===`);\n        debugLog('scene', `場景名稱: ${memoryRecord.scene_name}`);\n        debugLog('scene', `儲存時間: ${memoryRecord.timestamp}`);\n\n        const devices = memoryRecord.devices || {};\n        const deviceTopics = Object.keys(devices);\n\n        // 對每個設備發送 MQTT 指令\n        for (const deviceTopic of deviceTopics) {\n            const savedState = devices[deviceTopic];\n            const deviceParts = deviceTopic.split(\"/\");\n            const devSubType = deviceParts[2];     // single, dual\n            const devModuleId = deviceParts[3];\n            const devChannel = deviceParts[4];\n\n            // 先更新快取\n            const stateKey = `${devSubType}_${devModuleId}_${devChannel}_state`;\n            const brightnessKey = `${devSubType}_${devModuleId}_${devChannel}_brightness`;\n\n            flow.set(stateKey, savedState.state);\n            flow.set(brightnessKey, savedState.brightness);\n\n            if (devSubType === \"dual\" && savedState.colortemp !== undefined) {\n                const colortempKey = `${devSubType}_${devModuleId}_${devChannel}_colortemp`;\n                flow.set(colortempKey, savedState.colortemp);\n            }\n\n            debugLog('scene', `  ${deviceTopic}: ${savedState.state} ${savedState.brightness}%${savedState.colortemp ? ` ${savedState.colortemp}K` : ''}`);\n\n            // 發送控制指令\n            mqttMessages.push({\n                topic: `${deviceTopic}/set`,\n                payload: savedState.state\n            });\n        }\n\n        node.status({\n            fill: \"yellow\",\n            shape: \"ring\",\n            text: `執行記憶: ${memoryRecord.scene_name} (${deviceTopics.length}個設備)`\n        });\n\n        // 直接返回 MQTT 訊息，不需要 Modbus\n        return [[], mqttMessages];\n    }\n}\n\n// ========== LIGHT DEVICE ==========\nif (deviceType === \"light\") {\n    const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;\n\n    // 處理 set/brightness 和 set/colortemp\n    if (parts.length >= 7 && parts[5] === \"set\") {\n        const attribute = parts[6];\n        // Scene 的 key 格式不同：scene_single_12-3--12-4_brightness\n        let key;\n        if (subType === \"scene\") {\n            key = `scene_${parts[3]}_${parts[4]}_${attribute}`;\n        } else {\n            key = `${subType}_${moduleId}_${channel}_${attribute}`;\n        }\n        const val = Number(msg.payload);\n\n        if (!isNaN(val)) {\n            flow.set(key, val);\n            debugLog('cache', `儲存 ${key} = ${val}`);\n        }\n\n        if (attribute === \"brightness\" || attribute === \"colortemp\") {\n            // 對於 dual 燈光的色溫調整，只發送色溫指令，不觸發完整控制流程\n            if (subType === \"dual\" && attribute === \"colortemp\") {\n                const regs = CHANNEL_REGISTER_MAP[channel];\n                if (!regs) {\n                    debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n                    return null;\n                }\n                \n                let colortemp = val;\n                colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);\n                const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);\n                \n                const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);\n                \n                debugLog('modbus', `=== Modbus 指令 (Dual Colortemp Only) ===`);\n                debugLog('modbus', `色溫: ${cmdColortemp.toString('hex')}`);\n                \n                modbusMessages.push({ payload: cmdColortemp, subType, moduleId, channel, colortemp });\n                \n                node.status({\n                    fill: \"yellow\",\n                    shape: \"dot\",\n                    text: `${moduleId}-${channel}: Colortemp ${colortemp}K`\n                });\n                \n                return [modbusMessages, []];\n            }\n            \n            // 亮度或色溫變更時，保持當前開關狀態不變\n            // 0% 不會自動變成 OFF，需要明確發送 OFF 指令才會關閉\n            const stateKey = `${subType}_${moduleId}_${channel}_state`;\n            const state = flow.get(stateKey) || \"ON\";\n            msg.topic = `homeassistant/light/${subType}/${moduleId}/${channel}/set`;\n            msg.payload = state;\n        } else {\n            return null;\n        }\n    }\n\n    // ===== RELAY =====\n    if (subType === \"relay\") {\n        const addr = CHANNEL_COIL_MAP[channel];\n        if (addr === undefined) {\n            debugLog('modbus', `找不到 Relay 通道 ${channel}`);\n            return null;\n        }\n\n        const state = (msg.payload === \"ON\") ? \"ON\" : \"OFF\";\n        const valHi = (msg.payload === \"ON\") ? 0xFF : 0x00;\n        const valLo = 0x00;\n        const hi = (addr >> 8) & 0xFF;\n        const lo = addr & 0xFF;\n        const frame = Buffer.from([moduleId, 0x05, hi, lo, valHi, valLo]);\n        const cmd = generalCommandBuild(frame);\n\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        debugLog('modbus', `=== Modbus 指令 (Relay) ===`);\n        debugLog('modbus', `Coil 地址: 0x${addr.toString(16).padStart(4, '0')}`);\n        debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmd, subType, moduleId, channel, state });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `Relay ${moduleId}-${channel}: ${state}`\n        });\n    }\n\n    // ===== SINGLE =====\n    else if (subType === \"single\") {\n        const reg = CHANNEL_REGISTER_MAP[channel];\n        if (!reg) {\n            debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n\n        let state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);\n        if (typeof brightness !== \"number\") brightness = DEFAULT_BRIGHTNESS;\n        brightness = clamp(Math.round(brightness), 0, 100);\n\n        const brValue = (state === \"ON\") ? brightness : 0;\n        const speed = (state === \"OFF\") ? 0x00 : BRIGHTNESS_TIME;\n        const cmd = buildCommand(moduleId, reg, brValue, speed);\n\n        debugLog('modbus', `=== Modbus 指令 (Single) ===`);\n        debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmd, subType, moduleId, channel, state, brightness });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        if (state === \"ON\") {\n            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n        }\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `${moduleId}-${channel}: ${state} ${brightness}%`\n        });\n    }\n\n    // ===== DUAL =====\n    else if (subType === \"dual\") {\n        const regs = CHANNEL_REGISTER_MAP[channel];\n        if (!regs) {\n            debugLog('modbus', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n\n        let state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        const stateKey = `${subType}_${moduleId}_${channel}_state`;\n        flow.set(stateKey, state);\n\n        let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);\n        if (typeof brightness !== \"number\") brightness = DEFAULT_BRIGHTNESS;\n        brightness = clamp(Math.round(brightness), 0, 100);\n\n        let colortemp = flow.get(`${subType}_${moduleId}_${channel}_colortemp`);\n        if (typeof colortemp !== \"number\") colortemp = DEFAULT_COLORTEMP;\n        colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);\n        const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);\n\n        const brValue = (state === \"ON\") ? brightness : 0;\n        const cmdBrightness = buildCommand(moduleId, regs[0], brValue);\n        const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);\n\n        debugLog('modbus', `=== Modbus 指令 (Dual) ===`);\n        debugLog('modbus', `亮度: ${cmdBrightness.toString('hex')}`);\n        debugLog('modbus', `色溫: ${cmdColortemp.toString('hex')}`);\n\n        modbusMessages.push({ payload: cmdBrightness, subType, moduleId, channel, state, brightness, colortemp });\n        modbusMessages.push({ payload: cmdColortemp, subType, moduleId, channel, state, brightness, colortemp });\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        if (state === \"ON\") {\n            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n            mqttMessages.push({ topic: `${baseTopic}/colortemp`, payload: colortemp });\n        }\n\n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `${moduleId}-${channel}: ${state} ${brightness}% ${colortemp}K`\n        });\n    }\n\n    // ===== SCENE =====\n    else if (subType === \"scene\") {\n        const sceneType = parts[3];  // single, dual\n        const lights = parts[4].split(\"--\");  // 12-1--12-2\n        const state = (msg.payload === \"ON\" || msg.payload === true) ? \"ON\" : \"OFF\";\n        \n        // Scene 快取 key 格式: scene_single_12-3--12-4_brightness\n        const groupBrightnessKey = `scene_${sceneType}_${parts[4]}_brightness`;\n        const groupColortempKey = `scene_${sceneType}_${parts[4]}_colortemp`;\n        const groupBrightness = flow.get(groupBrightnessKey);\n        const groupColortemp = flow.get(groupColortempKey);\n\n        debugLog('scene', `=== Scene 控制 ===`);\n        debugLog('scene', `場景類型: ${sceneType}`);\n        debugLog('scene', `燈光列表: ${lights.join(\", \")}`);\n        debugLog('scene', `狀態: ${state}`);\n\n        // 發送指令到每個燈光\n        for (let light of lights) {\n            const [lightId, lightChannel] = light.split(\"-\");\n            \n            // 先直接更新個別燈光的快取（不透過 MQTT）\n            if (state === \"ON\" && groupBrightness !== undefined) {\n                flow.set(`${sceneType}_${lightId}_${lightChannel}_brightness`, groupBrightness);\n                debugLog('scene', `更新快取: ${sceneType}_${lightId}_${lightChannel}_brightness = ${groupBrightness}`);\n            }\n            if (state === \"ON\" && groupColortemp !== undefined && sceneType === \"dual\") {\n                flow.set(`${sceneType}_${lightId}_${lightChannel}_colortemp`, groupColortemp);\n                debugLog('scene', `更新快取: ${sceneType}_${lightId}_${lightChannel}_colortemp = ${groupColortemp}`);\n            }\n            \n            // 然後發送開關指令（會使用剛更新的快取）\n            const lightTopic = `homeassistant/light/${sceneType}/${lightId}/${lightChannel}/set`;\n            mqttMessages.push({ topic: lightTopic, payload: state });\n        }\n\n        // 更新場景本身的狀態\n        mqttMessages.push({ topic: `homeassistant/light/scene/${sceneType}/${parts[4]}/state`, payload: state });\n\n        node.status({\n            fill: state === \"ON\" ? \"yellow\" : \"grey\",\n            shape: \"ring\",\n            text: `Scene: ${lights.length} 燈 ${state}`\n        });\n    }\n}\n\n// ========== COVER DEVICE ==========\nelse if (deviceType === \"cover\") {\n    // 格式: homeassistant/cover/general/12/set\n    // payload: \"1_2/3\" 表示開啟 relay 1 和 2，關閉 relay 3\n    \n    const relays = msg.payload.split(\"/\");\n    const on_relays = relays[0] ? relays[0].split(\"_\").map(Number) : [];\n    const off_relays = (relays[1] && relays[1].length > 0) ? relays[1].split(\"_\").map(Number) : [];\n\n    let output = 0x00;\n    for (let relay of on_relays) {\n        output |= (1 << (relay - 1));\n    }\n    for (let relay of off_relays) {\n        output &= ~(1 << (relay - 1));\n    }\n\n    const frame = Buffer.from([moduleId, 0x06, 0x01, 0x9b, 0x10, output]);\n    const cmd = generalCommandBuild(frame);\n\n    debugLog('modbus', `=== Modbus 指令 (Cover) ===`);\n    debugLog('modbus', `開啟 Relay: ${on_relays.join(\", \")}`);\n    debugLog('modbus', `關閉 Relay: ${off_relays.join(\", \")}`);\n    debugLog('modbus', `Bit Mask: 0b${output.toString(2).padStart(8, '0')} (0x${output.toString(16).padStart(2, '0')})`);\n    debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n\n    modbusMessages.push({ payload: cmd, deviceType, moduleId, on_relays, off_relays });\n\n    node.status({\n        fill: \"blue\",\n        shape: \"dot\",\n        text: `Cover: ON[${on_relays}] OFF[${off_relays}]`\n    });\n}\n\n\n// ========== QUERY DEVICE (查詢) ==========\nelse if (deviceType === \"query\") {\n    // 格式: homeassistant/query/{subType}/{moduleId}/{channel}\n    // subType: single, dual, relay\n    \n    const querySubType = subType;  // single, dual, relay\n    \n    debugLog('query', `=== Query 查詢 ===`);\n    debugLog('query', `類型: ${querySubType}, 模組: ${moduleId}, 通道: ${channel}`);\n    \n    let frame;\n    \n    if (querySubType === \"single\" || querySubType === \"dual\") {\n        // 查詢 Single/Dual Light: Read Holding Registers (0x03)\n        const reg = CHANNEL_REGISTER_MAP[channel];\n        if (!reg) {\n            debugLog('query', `找不到通道 ${channel} 的寄存器`);\n            return null;\n        }\n        \n        const startReg = Array.isArray(reg) ? reg[0] : reg;  // dual 取第一個寄存器\n        const quantity = Array.isArray(reg) ? 2 : 1;  // dual 讀 2 個，single 讀 1 個\n        \n        const regHi = (startReg >> 8) & 0xFF;\n        const regLo = startReg & 0xFF;\n        const qtyHi = (quantity >> 8) & 0xFF;\n        const qtyLo = quantity & 0xFF;\n        \n        frame = Buffer.from([moduleId, 0x03, regHi, regLo, qtyHi, qtyLo]);\n        \n        debugLog('query', `讀取寄存器: 0x${startReg.toString(16).padStart(4, '0')}, 數量: ${quantity}`);\n    }\n    else if (querySubType === \"relay\") {\n        // 查詢 Relay: Read Coils (0x01)\n        const addr = CHANNEL_COIL_MAP[channel] || 0x0000;\n        const quantity = 4;  // 讀取 4 個 coils\n        \n        const addrHi = (addr >> 8) & 0xFF;\n        const addrLo = addr & 0xFF;\n        const qtyHi = (quantity >> 8) & 0xFF;\n        const qtyLo = quantity & 0xFF;\n        \n        frame = Buffer.from([moduleId, 0x01, addrHi, addrLo, qtyHi, qtyLo]);\n        \n        debugLog('query', `讀取線圈: 0x${addr.toString(16).padStart(4, '0')}, 數量: ${quantity}`);\n    }\n    else {\n        debugLog('query', `不支援的查詢類型: ${querySubType}`);\n        return null;\n    }\n    \n    const cmd = generalCommandBuild(frame);\n    \n    debugLog('modbus', `=== Modbus 查詢指令 ===`);\n    debugLog('modbus', `指令: ${cmd.toString('hex')}`);\n    \n    // 將查詢資訊附加到每個訊息中，供 Feedback 使用\n    const queryMsg = { \n        payload: cmd, \n        deviceType: \"query\", \n        subType: querySubType, \n        moduleId, \n        channel,\n        queryInfo: { type: querySubType, channel: channel }\n    };\n    modbusMessages.push(queryMsg);\n    \n    node.status({\n        fill: \"cyan\",\n        shape: \"ring\",\n        text: `Query ${querySubType} ${moduleId}-${channel}`\n    });\n}\n\n\nelse {\n    debugLog('topic', `不支援的設備類型: ${deviceType}`);\n    return null;\n}\n\n// 返回: [Modbus 指令, MQTT 狀態]\nreturn [modbusMessages, mqttMessages];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
         "initialize": "node.warn(\"=== 初始化完整測試系統 ===\");",
         "finalize": "",
         "libs": [],
-        "x": 410,
-        "y": 2100,
+        "x": 420,
+        "y": 380,
         "wires": [
             [
-                "d59a4d2f00fac520",
-                "4f08be38e8e5a989"
+                "c3dbea9b589d5f92",
+                "eaab0b11d13ce29c",
+                "92ebd28bb214682f"
             ],
             [
-                "91359a179be62f4c",
-                "e67cfaa863dbcbf7"
+                "e3136325dd4d62c0",
+                "5e502cf6efc922db"
             ]
         ]
     },
     {
-        "id": "d59a4d2f00fac520",
+        "id": "c3dbea9b589d5f92",
         "type": "debug",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "Modbus 指令",
         "active": true,
         "tosidebar": true,
@@ -93,15 +96,15 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 670,
-        "y": 2020,
+        "x": 680,
+        "y": 300,
         "wires": []
     },
     {
-        "id": "4f08be38e8e5a989",
+        "id": "eaab0b11d13ce29c",
         "type": "tcp request",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "TCP → Modbus",
         "server": "192.168.1.208",
         "port": "502",
@@ -111,19 +114,19 @@
         "newline": "",
         "trim": false,
         "tls": "",
-        "x": 660,
-        "y": 2080,
+        "x": 670,
+        "y": 360,
         "wires": [
             [
-                "c543b1d15612a8c6"
+                "ad3a1531084040c2"
             ]
         ]
     },
     {
-        "id": "c543b1d15612a8c6",
+        "id": "ad3a1531084040c2",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "Feedback 處理器 + 狀態解析",
         "func": "// 完整 Feedback 處理器：解析 Modbus 回應並發布 MQTT 狀態\n\n// Debug 控制\nconst debugConfig = global.get('debug_config') || {\n    topic: true,\n    cache: true,\n    modbus: true,\n    mqtt: true,\n    scene: true,\n    query: true\n};\n\nfunction debugLog(category, message) {\n    if (debugConfig[category]) {\n        node.warn(message);\n    }\n}\n\nfunction verifyCRC(buf) {\n    let crc = 0xFFFF;\n    for (let i = 0; i < buf.length - 2; i++) {\n        crc ^= buf[i];\n        for (let j = 0; j < 8; j++) {\n            crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);\n        }\n    }\n    const lo = crc & 0xFF;\n    const hi = (crc >> 8) & 0xFF;\n    return lo === buf[buf.length - 2] && hi === buf[buf.length - 1];\n}\n\nconst buf = msg.payload;\n\nif (!Buffer.isBuffer(buf) || buf.length < 5) {\n    debugLog('modbus', \"回應格式錯誤\");\n    return null;\n}\n\nif (!verifyCRC(buf)) {\n    debugLog('modbus', \"CRC 驗證失敗\");\n    return null;\n}\n\nconst moduleId = buf[0];\nconst funcCode = buf[1];\n\ndebugLog('modbus', `=== Modbus 回應 ===`);\ndebugLog('modbus', `模組ID: ${moduleId}`);\ndebugLog('modbus', `功能碼: 0x${funcCode.toString(16).padStart(2, '0')}`);\n\nconst CHANNEL_REGISTER_MAP = {\n    0x082A: { type: \"single\", channel: \"1\" },\n    0x082B: { type: \"single\", channel: \"2\" },\n    0x082C: { type: \"single\", channel: \"3\" },\n    0x082D: { type: \"single\", channel: \"4\" }\n};\n\nconst DUAL_REGISTER_MAP = {\n    0x082A: { type: \"dual\", channel: \"a\", attribute: \"brightness\" },\n    0x082B: { type: \"dual\", channel: \"a\", attribute: \"colortemp\" },\n    0x082C: { type: \"dual\", channel: \"b\", attribute: \"brightness\" },\n    0x082D: { type: \"dual\", channel: \"b\", attribute: \"colortemp\" }\n};\n\nconst RELAY_COIL_MAP = {\n    0x0000: { channel: \"1\" },\n    0x0001: { channel: \"2\" },\n    0x0002: { channel: \"3\" },\n    0x0003: { channel: \"4\" }\n};\n\nlet mqttMessages = [];\n\n// ===== 0x06 Write Single Register (Single/Dual Light) =====\nif (funcCode === 0x06) {\n    const regHi = buf[2];\n    const regLo = buf[3];\n    const speedOrCoil = buf[4];\n    const valueOrCoil = buf[5];\n    const register = (regHi << 8) | regLo;\n    \n    debugLog('modbus', `寄存器: 0x${register.toString(16).padStart(4, '0')}, 數值: ${valueOrCoil}`);\n    \n    const registerInfo = CHANNEL_REGISTER_MAP[register] || DUAL_REGISTER_MAP[register];\n    \n    if (registerInfo) {\n        const { type, channel, attribute } = registerInfo;\n        const brightness = valueOrCoil;  // 最後一個 byte 是亮度值\n        const state = brightness > 0 ? \"ON\" : \"OFF\";\n        \n        const baseTopic = `homeassistant/light/${type}/${moduleId}/${channel}`;\n        \n        debugLog('modbus', `=== 解析 ${type.toUpperCase()} 燈光 ===`);\n        debugLog('modbus', `通道: ${channel}, 狀態: ${state}, 亮度: ${brightness}`);\n        \n        if (type === \"single\") {\n            // Single Light: 發布狀態和亮度\n            mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n            if (state === \"ON\") {\n                mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n            }\n            \n            // 更新快取：OFF 時不更新亮度快取，保留上次的亮度值\n            flow.set(`single_${moduleId}_${channel}_state`, state);\n            if (brightness > 0) {\n                flow.set(`single_${moduleId}_${channel}_brightness`, brightness);\n                debugLog('cache', `更新亮度快取: single_${moduleId}_${channel}_brightness = ${brightness}`);\n            } else {\n                debugLog('cache', `亮度為 0，保留原快取值: ${flow.get(`single_${moduleId}_${channel}_brightness`)}`);\n            }\n            \n            debugLog('mqtt', `發布狀態: ${baseTopic}/state = ${state}`);\n            if (state === \"ON\") {\n                debugLog('mqtt', `發布亮度: ${baseTopic}/brightness = ${brightness}`);\n            }\n        } else if (type === \"dual\") {\n            // Dual Light: 分別處理亮度和色溫\n            if (attribute === \"brightness\") {\n                mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n                if (state === \"ON\") {\n                    mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n                }\n                flow.set(`dual_${moduleId}_${channel}_state`, state);\n                // OFF 時不更新亮度快取，保留上次的亮度值\n                if (brightness > 0) {\n                    flow.set(`dual_${moduleId}_${channel}_brightness`, brightness);\n                    debugLog('cache', `更新亮度快取: dual_${moduleId}_${channel}_brightness = ${brightness}`);\n                } else {\n                    debugLog('cache', `亮度為 0，保留原快取值: ${flow.get(`dual_${moduleId}_${channel}_brightness`)}`);\n                }\n                \n                debugLog('mqtt', `發布狀態: ${baseTopic}/state = ${state}`);\n            } else if (attribute === \"colortemp\") {\n                // 色溫百分比轉回 mired\n                const ctPercent = valueOrCoil;\n                const MIN_MIRED = 167;\n                const MAX_MIRED = 333;\n                const colortemp = Math.round(MAX_MIRED - (ctPercent / 100) * (MAX_MIRED - MIN_MIRED));\n                \n                mqttMessages.push({ topic: `${baseTopic}/colortemp`, payload: colortemp });\n                flow.set(`dual_${moduleId}_${channel}_colortemp`, colortemp);\n                \n                debugLog('mqtt', `發布色溫: ${baseTopic}/colortemp = ${colortemp} mired (${ctPercent}%)`);\n            }\n        }\n        \n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"dot\",\n            text: `${type} ${moduleId}-${channel}: ${state} ${brightness}%`\n        });\n    }\n}\n\n// ===== 0x05 Write Single Coil (Relay) =====\nelse if (funcCode === 0x05) {\n    const regHi = buf[2];\n    const regLo = buf[3];\n    const speedOrCoil = buf[4];\n    const register = (regHi << 8) | regLo;\n    \n    debugLog('modbus', `Coil: 0x${register.toString(16).padStart(4, '0')}`);\n    \n    const coilInfo = RELAY_COIL_MAP[register];\n    \n    if (coilInfo) {\n        const { channel } = coilInfo;\n        const state = speedOrCoil === 0xFF ? \"ON\" : \"OFF\";  // 0xFF00 = ON, 0x0000 = OFF\n        \n        const baseTopic = `homeassistant/light/relay/${moduleId}/${channel}`;\n        \n        debugLog('modbus', `=== 解析 RELAY ===`);\n        debugLog('modbus', `通道: ${channel}, 狀態: ${state}`);\n        \n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        flow.set(`relay_${moduleId}_${channel}_state`, state);\n        \n        debugLog('mqtt', `發布狀態: ${baseTopic}/state = ${state}`);\n        \n        node.status({\n            fill: state === \"ON\" ? \"green\" : \"grey\",\n            shape: \"ring\",\n            text: `Relay ${moduleId}-${channel}: ${state}`\n        });\n    }\n}\n\n// ===== 0x03 Read Holding Registers (查詢回應) =====\nelse if (funcCode === 0x03) {\n    const byteCount = buf[2];  // 回傳的 byte 數量\n    \n    debugLog('modbus', `=== 查詢回應 (0x03 Read Holding Registers) ===`);\n    debugLog('modbus', `模組ID: ${moduleId}, Byte Count: ${byteCount}`);\n    \n    // 解析寄存器數據 (格式: [模組ID] [0x03] [Byte Count] [Reg1 Hi] [Reg1 Lo] [Reg2 Hi] [Reg2 Lo] ... [CRC])\n    if (byteCount >= 2) {\n        const reg1Hi = buf[3];\n        const reg1Lo = buf[4];\n        const reg1Value = (reg1Hi << 8) | reg1Lo;\n        const brightness = reg1Lo;  // 低位元組是亮度值\n        const state = brightness > 0 ? \"ON\" : \"OFF\";\n        \n        debugLog('modbus', `第一個寄存器值: 0x${reg1Value.toString(16).padStart(4, '0')} (亮度: ${brightness})`);\n        \n        // 從 msg.payload 中取得原始查詢的寄存器地址（需要從發送時儲存）\n        // 或者我們可以根據模組ID和通道來推斷\n        // 這裡我們假設查詢 single light channel 1 (0x082A)\n        // 更好的做法是在發送查詢時將寄存器地址附加到 msg 中\n        \n        // 從 msg 中取得查詢時的設備資訊（由 Full Processor 傳遞）\n        const queryInfo = msg.queryInfo || {};\n        const type = queryInfo.type || \"single\";\n        const channel = queryInfo.channel || \"1\";\n        const baseTopic = `homeassistant/light/${type}/${moduleId}/${channel}`;\n        \n        debugLog('modbus', `查詢結果: ${type} 燈光, 通道 ${channel}`);\n        debugLog('modbus', `狀態: ${state}, 亮度: ${brightness}`);\n        \n        // 發布查詢到的狀態\n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        if (state === \"ON\") {\n            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });\n        }\n        \n        // 更新快取：查詢時如果亮度為 0，也不更新亮度快取\n        flow.set(`${type}_${moduleId}_${channel}_state`, state);\n        if (brightness > 0) {\n            flow.set(`${type}_${moduleId}_${channel}_brightness`, brightness);\n            debugLog('cache', `查詢更新亮度快取: ${type}_${moduleId}_${channel}_brightness = ${brightness}`);\n        } else {\n            debugLog('cache', `查詢亮度為 0，保留原快取值: ${flow.get(`${type}_${moduleId}_${channel}_brightness`)}`);\n        }\n        \n        debugLog('mqtt', `查詢發布: ${baseTopic}/state = ${state}`);\n        if (state === \"ON\") {\n            debugLog('mqtt', `查詢發布亮度: ${baseTopic}/brightness = ${brightness}`);\n        }\n        \n        // 如果有第二個寄存器 (Dual Light 色溫)\n        if (byteCount >= 4) {\n            const reg2Hi = buf[5];\n            const reg2Lo = buf[6];\n            const reg2Value = (reg2Hi << 8) | reg2Lo;\n            const ctPercent = reg2Lo;\n            \n            debugLog('modbus', `第二個寄存器值: 0x${reg2Value.toString(16).padStart(4, '0')} (色溫%: ${ctPercent})`);\n            \n            const MIN_MIRED = 167;\n            const MAX_MIRED = 333;\n            const colortemp = Math.round(MAX_MIRED - (ctPercent / 100) * (MAX_MIRED - MIN_MIRED));\n            \n            // 如果是 dual light，發布色溫\n            if (type === \"dual\") {\n                mqttMessages.push({ topic: `${baseTopic}/colortemp`, payload: colortemp });\n                flow.set(`dual_${moduleId}_${channel}_colortemp`, colortemp);\n                debugLog('mqtt', `查詢發布色溫: ${baseTopic}/colortemp = ${colortemp} mired`);\n            }\n        }\n        \n        node.status({\n            fill: state === \"ON\" ? \"cyan\" : \"grey\",\n            shape: \"ring\",\n            text: `Query: ${type} ${moduleId}-${channel}: ${state} ${brightness}%`\n        });\n    }\n}\n\n// ===== 0x01 Read Coils (Relay 查詢回應) =====\nelse if (funcCode === 0x01) {\n    const byteCount = buf[2];\n    const coilStatus = buf[3];  // Coil 狀態 (bit mask)\n    \n    debugLog('modbus', `=== 查詢回應 (0x01 Read Coils) ===`);\n    debugLog('modbus', `模組ID: ${moduleId}, Coil 狀態: 0b${coilStatus.toString(2).padStart(8, '0')}`);\n    \n    // 解析每個 Relay 的狀態\n    for (let i = 0; i < 4; i++) {\n        const channel = String(i + 1);\n        const state = (coilStatus & (1 << i)) ? \"ON\" : \"OFF\";\n        const baseTopic = `homeassistant/light/relay/${moduleId}/${channel}`;\n        \n        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });\n        flow.set(`relay_${moduleId}_${channel}_state`, state);\n        \n        debugLog('mqtt', `查詢發布 Relay: ${baseTopic}/state = ${state}`);\n    }\n    \n    node.status({\n        fill: \"cyan\",\n        shape: \"ring\",\n        text: `Query: Relay ${moduleId} (1-4)`\n    });\n}\n\nmsg.feedback = {\n    moduleId,\n    funcCode,\n    raw: buf.toString('hex')\n};\n\n// 返回: [Feedback 資訊, MQTT 狀態]\nreturn [msg, mqttMessages];",
         "outputs": 2,
@@ -132,23 +135,23 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 880,
-        "y": 2080,
+        "x": 890,
+        "y": 360,
         "wires": [
             [
-                "846a05abdd99da9a"
+                "0a120415cdf078e6"
             ],
             [
-                "e67cfaa863dbcbf7",
-                "91359a179be62f4c"
+                "5e502cf6efc922db",
+                "e3136325dd4d62c0"
             ]
         ]
     },
     {
-        "id": "846a05abdd99da9a",
+        "id": "0a120415cdf078e6",
         "type": "debug",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "Feedback 解析",
         "active": true,
         "tosidebar": true,
@@ -158,15 +161,15 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1120,
-        "y": 2060,
+        "x": 1130,
+        "y": 340,
         "wires": []
     },
     {
-        "id": "e67cfaa863dbcbf7",
+        "id": "5e502cf6efc922db",
         "type": "mqtt out",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "MQTT 發布狀態",
         "topic": "",
         "qos": "0",
@@ -177,15 +180,15 @@
         "correl": "",
         "expiry": "",
         "broker": "751ec40a6956d4f9",
-        "x": 1120,
-        "y": 2120,
+        "x": 1130,
+        "y": 400,
         "wires": []
     },
     {
-        "id": "91359a179be62f4c",
+        "id": "e3136325dd4d62c0",
         "type": "debug",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "MQTT 狀態回報",
         "active": true,
         "tosidebar": true,
@@ -195,26 +198,26 @@
         "targetType": "full",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1120,
-        "y": 2180,
+        "x": 1130,
+        "y": 460,
         "wires": []
     },
     {
-        "id": "d9e61560c29c49a4",
+        "id": "83176ffd47a85872",
         "type": "comment",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "完整測試：所有設備類型 (Light: Single/Dual/Relay, Cover, Scene)",
         "info": "支援的設備類型：\n\n🔆 **Light - Single**\n   - Topic: homeassistant/light/single/{module}/{channel}/set\n   - 單色燈控制 (亮度)\n\n🔆 **Light - Dual**\n   - Topic: homeassistant/light/dual/{module}/{channel}/set\n   - 雙色溫燈控制 (亮度 + 色溫)\n\n🔆 **Light - Relay**\n   - Topic: homeassistant/light/relay/{module}/{channel}/set\n   - 繼電器開關 (ON/OFF)\n\n🎬 **Light - Scene**\n   - Topic: homeassistant/light/scene/{type}/{lights}/set\n   - 場景控制 (批次控制多個燈)\n   - 例如: scene/single/12-1--12-2/set\n\n🪟 **Cover**\n   - Topic: homeassistant/cover/general/{module}/set\n   - Payload: \"1_2/3\" (開啟 1,2 關閉 3)\n   - 窗簾控制 (Bit Mask)\n\n✅ 完整流程：\n   MQTT In → 處理器 → Modbus → Feedback → MQTT Out\n\n❌ 無 Queue 系統 (直接發送)",
-        "x": 330,
-        "y": 2020,
+        "x": 340,
+        "y": 300,
         "wires": []
     },
     {
-        "id": "c7e2c547c268c2ae",
+        "id": "d20029a6b8125922",
         "type": "group",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "style": {
             "stroke": "#999999",
             "stroke-opacity": "1",
@@ -225,25 +228,25 @@
             "color": "#a4a4a4"
         },
         "nodes": [
-            "a141b323b80a0134",
-            "9aa235d2b9190db5",
-            "57b409a6f5cfbcaf",
-            "f40af533710f330a",
-            "07ecc86a82f9ad28",
-            "6f24912e538c90e0",
-            "7c65dae1fa6a5b17",
-            "4f34c7547448a4f3"
+            "b9424e3f8766af17",
+            "12c9564be2e67767",
+            "42c607e63cb03660",
+            "f9fe30f995d3c140",
+            "c457e5d373b7dfc1",
+            "4ee96bc13585141d",
+            "4a1c5fb14d27db92",
+            "eccdde7608772ede"
         ],
         "x": 114,
-        "y": 2219,
+        "y": 539,
         "w": 928,
         "h": 248
     },
     {
-        "id": "a141b323b80a0134",
+        "id": "b9424e3f8766af17",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "Debug 全開",
         "props": [
             {
@@ -258,18 +261,18 @@
         "payload": "{\"topic\":true,\"cache\":true,\"modbus\":true,\"mqtt\":true,\"scene\":true,\"query\":true,\"hmi\":true}",
         "payloadType": "json",
         "x": 230,
-        "y": 2300,
+        "y": 620,
         "wires": [
             [
-                "f40af533710f330a"
+                "f9fe30f995d3c140"
             ]
         ]
     },
     {
-        "id": "9aa235d2b9190db5",
+        "id": "12c9564be2e67767",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "Debug 全關",
         "props": [
             {
@@ -284,18 +287,18 @@
         "payload": "{\"topic\":false,\"cache\":false,\"modbus\":false,\"mqtt\":false,\"scene\":false,\"query\":false,\"hmi\":false}",
         "payloadType": "json",
         "x": 230,
-        "y": 2340,
+        "y": 660,
         "wires": [
             [
-                "f40af533710f330a"
+                "f9fe30f995d3c140"
             ]
         ]
     },
     {
-        "id": "57b409a6f5cfbcaf",
+        "id": "42c607e63cb03660",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "只看 Modbus",
         "props": [
             {
@@ -310,18 +313,18 @@
         "payload": "{\"topic\":false,\"cache\":false,\"modbus\":true,\"mqtt\":false,\"scene\":false,\"query\":false,\"hmi\":false}",
         "payloadType": "json",
         "x": 240,
-        "y": 2380,
+        "y": 700,
         "wires": [
             [
-                "f40af533710f330a"
+                "f9fe30f995d3c140"
             ]
         ]
     },
     {
-        "id": "f40af533710f330a",
+        "id": "f9fe30f995d3c140",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "設定 Debug 配置",
         "func": "const config = msg.payload;\nglobal.set('debug_config', config);\n\nnode.warn('=== Debug 配置已更新 ===');\nnode.warn(`Topic: ${config.topic ? 'ON' : 'OFF'}`);\nnode.warn(`Cache: ${config.cache ? 'ON' : 'OFF'}`);\nnode.warn(`Modbus: ${config.modbus ? 'ON' : 'OFF'}`);\nnode.warn(`MQTT: ${config.mqtt ? 'ON' : 'OFF'}`);\nnode.warn(`Scene: ${config.scene ? 'ON' : 'OFF'}`);\nnode.warn(`Query: ${config.query ? 'ON' : 'OFF'}`);\nnode.warn(`HMI: ${config.hmi ? 'ON' : 'OFF'}`);\n\nnode.status({\n    fill: 'green',\n    shape: 'dot',\n    text: `已更新 Debug 配置`\n});\n\nreturn msg;",
         "outputs": 1,
@@ -331,16 +334,16 @@
         "finalize": "",
         "libs": [],
         "x": 450,
-        "y": 2340,
+        "y": 660,
         "wires": [
             []
         ]
     },
     {
-        "id": "07ecc86a82f9ad28",
+        "id": "c457e5d373b7dfc1",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "顯示 Debug 配置",
         "props": [],
         "repeat": "",
@@ -349,18 +352,18 @@
         "onceDelay": 0.1,
         "topic": "",
         "x": 250,
-        "y": 2420,
+        "y": 740,
         "wires": [
             [
-                "6f24912e538c90e0"
+                "4ee96bc13585141d"
             ]
         ]
     },
     {
-        "id": "6f24912e538c90e0",
+        "id": "4ee96bc13585141d",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "顯示當前 Debug 配置",
         "func": "const config = global.get('debug_config') || {\n    topic: true,\n    cache: true,\n    modbus: true,\n    mqtt: true,\n    scene: true,\n    query: true,\n    hmi: true\n};\n\nnode.warn('=== 當前 Debug 配置 ===');\nnode.warn(`Topic: ${config.topic ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`Cache: ${config.cache ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`Modbus: ${config.modbus ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`MQTT: ${config.mqtt ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`Scene: ${config.scene ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`Query: ${config.query ? '✅ ON' : '❌ OFF'}`);\nnode.warn(`HMI: ${config.hmi ? '✅ ON' : '❌ OFF'}`);\n\nreturn msg;",
         "outputs": 1,
@@ -370,27 +373,27 @@
         "finalize": "",
         "libs": [],
         "x": 470,
-        "y": 2420,
+        "y": 740,
         "wires": [
             []
         ]
     },
     {
-        "id": "7c65dae1fa6a5b17",
+        "id": "4a1c5fb14d27db92",
         "type": "comment",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "name": "Debug 控制：動態切換 debug 訊息顯示",
         "info": "透過 global.debug_config 控制要顯示哪些 debug 訊息\n\n可控制的類別：\n- topic: 顯示收到的 Topic 和 Payload\n- cache: 顯示快取操作\n- modbus: 顯示 Modbus 指令詳情\n- mqtt: 顯示 MQTT 狀態回報\n- scene: 顯示 Scene 處理\n\n快速切換：\n- 全開：所有 debug 訊息\n- 全關：關閉所有 debug 訊息\n- 只看 Modbus：只顯示 Modbus 指令",
         "x": 290,
-        "y": 2260,
+        "y": 580,
         "wires": []
     },
     {
-        "id": "4f34c7547448a4f3",
+        "id": "eccdde7608772ede",
         "type": "group",
-        "z": "14580213f897af9a",
-        "g": "c7e2c547c268c2ae",
+        "z": "2489f740882ffd1e",
+        "g": "d20029a6b8125922",
         "style": {
             "stroke": "#999999",
             "stroke-opacity": "1",
@@ -401,21 +404,21 @@
             "color": "#a4a4a4"
         },
         "nodes": [
-            "bb3e2d1c2307f4df",
-            "988f47b73f552cb9",
-            "86383c3eec09415a",
-            "6fde0ff84f70efdf"
+            "c797ec90c5c28991",
+            "2c02f9cd339f02b6",
+            "200f3aab7ed19ca0",
+            "7d2924acd4a20585"
         ],
         "x": 594,
-        "y": 2319,
+        "y": 639,
         "w": 422,
         "h": 122
     },
     {
-        "id": "bb3e2d1c2307f4df",
+        "id": "c797ec90c5c28991",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "4f34c7547448a4f3",
+        "z": "2489f740882ffd1e",
+        "g": "eccdde7608772ede",
         "name": "清除快取",
         "props": [],
         "repeat": "",
@@ -424,18 +427,18 @@
         "onceDelay": 0.1,
         "topic": "",
         "x": 700,
-        "y": 2360,
+        "y": 680,
         "wires": [
             [
-                "988f47b73f552cb9"
+                "2c02f9cd339f02b6"
             ]
         ]
     },
     {
-        "id": "988f47b73f552cb9",
+        "id": "2c02f9cd339f02b6",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "4f34c7547448a4f3",
+        "z": "2489f740882ffd1e",
+        "g": "eccdde7608772ede",
         "name": "清除所有快取",
         "func": "const keys = flow.keys();\nlet count = 0;\nkeys.forEach(k => {\n    if (k.startsWith('single_') || k.startsWith('dual_') || k.startsWith('relay_') || k.startsWith('scene_')) {\n        flow.set(k, undefined);\n        node.warn(`清除: ${k}`);\n        count++;\n    }\n});\nnode.warn(`=== 已清除 ${count} 筆快取 ===`);\nnode.status({\n    fill: \"blue\",\n    shape: \"ring\",\n    text: `已清除 ${count} 筆`\n});\nreturn msg;",
         "outputs": 1,
@@ -445,16 +448,16 @@
         "finalize": "",
         "libs": [],
         "x": 910,
-        "y": 2360,
+        "y": 680,
         "wires": [
             []
         ]
     },
     {
-        "id": "86383c3eec09415a",
+        "id": "200f3aab7ed19ca0",
         "type": "inject",
-        "z": "14580213f897af9a",
-        "g": "4f34c7547448a4f3",
+        "z": "2489f740882ffd1e",
+        "g": "eccdde7608772ede",
         "name": "顯示快取",
         "props": [],
         "repeat": "",
@@ -463,18 +466,18 @@
         "onceDelay": 0.1,
         "topic": "",
         "x": 700,
-        "y": 2400,
+        "y": 720,
         "wires": [
             [
-                "6fde0ff84f70efdf"
+                "7d2924acd4a20585"
             ]
         ]
     },
     {
-        "id": "6fde0ff84f70efdf",
+        "id": "7d2924acd4a20585",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "4f34c7547448a4f3",
+        "z": "2489f740882ffd1e",
+        "g": "eccdde7608772ede",
         "name": "顯示所有快取",
         "func": "node.warn(\"=== Flow Context 內容 ===\");\nconst keys = flow.keys();\nconst filtered = keys.filter(k => \n    k.startsWith('single_') || \n    k.startsWith('dual_') || \n    k.startsWith('relay_') || \n    k.startsWith('scene_')\n);\n\nif (filtered.length === 0) {\n    node.warn(\"目前沒有任何快取資料\");\n} else {\n    // 分類顯示\n    const groups = {\n        single: [],\n        dual: [],\n        relay: [],\n        scene: []\n    };\n    \n    filtered.forEach(k => {\n        const value = flow.get(k);\n        if (k.startsWith('single_')) groups.single.push(`${k}: ${value}`);\n        else if (k.startsWith('dual_')) groups.dual.push(`${k}: ${value}`);\n        else if (k.startsWith('relay_')) groups.relay.push(`${k}: ${value}`);\n        else if (k.startsWith('scene_')) groups.scene.push(`${k}: ${value}`);\n    });\n    \n    if (groups.single.length > 0) {\n        node.warn(\"--- Single ---\");\n        groups.single.forEach(s => node.warn(s));\n    }\n    if (groups.dual.length > 0) {\n        node.warn(\"--- Dual ---\");\n        groups.dual.forEach(s => node.warn(s));\n    }\n    if (groups.relay.length > 0) {\n        node.warn(\"--- Relay ---\");\n        groups.relay.forEach(s => node.warn(s));\n    }\n    if (groups.scene.length > 0) {\n        node.warn(\"--- Scene ---\");\n        groups.scene.forEach(s => node.warn(s));\n    }\n    \n    node.warn(`=== 共 ${filtered.length} 筆快取 ===`);\n}\nreturn msg;",
         "outputs": 1,
@@ -484,16 +487,16 @@
         "finalize": "",
         "libs": [],
         "x": 880,
-        "y": 2400,
+        "y": 720,
         "wires": [
             []
         ]
     },
     {
-        "id": "hmi_tcp_in",
+        "id": "759dfd1d34dc8469",
         "type": "tcp in",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "HMI 輸入 (TCP)",
         "server": "server",
         "host": "0.0.0.0",
@@ -505,19 +508,19 @@
         "trim": false,
         "base64": false,
         "tls": "",
-        "x": 190,
-        "y": 2180,
+        "x": 200,
+        "y": 460,
         "wires": [
             [
-                "hmi_processor"
+                "fa90290b455867d2"
             ]
         ]
     },
     {
-        "id": "hmi_processor",
+        "id": "fa90290b455867d2",
         "type": "function",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "HMI 處理器",
         "func": "const MIN_MIRED = 167, MAX_MIRED = 333;\n\n// Debug 控制\nconst debugConfig = global.get('debug_config') || {\n    topic: true,\n    cache: true,\n    modbus: true,\n    mqtt: true,\n    scene: true,\n    query: true,\n    hmi: true\n};\n\nfunction debugLog(category, message) {\n    if (debugConfig[category]) {\n        node.warn(message);\n    }\n}\n\nconst HMI_pattern = [\n    // 窗簾控制\n    {\n        name: \"curtain_control\",\n        pattern: [null, 0x06, 0x01, 0x9b, 0x00, null, null, null],\n        parse: (input) => {\n            const curtainId = input[0];\n            const action = input[5];\n\n            const CURTAIN_MAP = {\n                0x15: { topic: \"homeassistant/cover/curtain/21/ocs/set\", type: \"ocs\" },\n                0x16: { topic: \"homeassistant/cover/curtain/22/oc/set\", type: \"oc\" },\n                0x17: { topic: \"homeassistant/cover/curtain/23\", type: \"multi\" }\n            };\n\n            const config = CURTAIN_MAP[curtainId];\n            if (!config) return null;\n\n            let payload, topicSuffix;\n\n            if (config.type === \"ocs\") {\n                const ACTION_MAP_OCS = {\n                    0x01: \"1/2-3\",\n                    0x04: \"2/1-3\",\n                    0x02: \"3/1-2\"\n                };\n                payload = ACTION_MAP_OCS[action];\n                topicSuffix = \"/set\";\n            } else if (config.type === \"oc\") {\n                const ACTION_MAP_OC = {\n                    0x01: \"1/2\",\n                    0x02: \"2/1\",\n                    0x03: \"1-2/\"\n                };\n                payload = ACTION_MAP_OC[action];\n                topicSuffix = \"/set\";\n            } else if (config.type === \"multi\") {\n                const ACTION_MAP_MULTI = {\n                    0x01: { suffix: \"/oc/set\", payload: \"1/2\" },\n                    0x03: { suffix: \"/oc/set\", payload: \"1_2/\" },\n                    0x02: { suffix: \"/oc/set\", payload: \"2/1\" },\n                    0x04: { suffix: \"/oc/set\", payload: \"3/4\" },\n                    0x0C: { suffix: \"/oc/set\", payload: \"3_4/\" },\n                    0x08: { suffix: \"/oc/set\", payload: \"4/3\" },\n                    0x10: { suffix: \"/ocs/set\", payload: \"5/6_7\" },\n                    0x40: { suffix: \"/ocs/set\", payload: \"7/5_6\" },\n                    0x20: { suffix: \"/ocs/set\", payload: \"6/5_7\" }\n                };\n                const actionConfig = ACTION_MAP_MULTI[action];\n                if (!actionConfig) return null;\n                topicSuffix = actionConfig.suffix;\n                payload = actionConfig.payload;\n            }\n\n            if (!payload) return null;\n            return [{ topic: config.topic + topicSuffix, payload: payload }];\n        }\n    },\n    // 場景控制\n    {\n        name: \"scene_unified\",\n        pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],\n        parse: (input) => {\n            const operation = input[4];\n            const sceneId = input[5];\n\n            // 記憶指令處理\n            if (operation >= 0x81 && operation <= 0x88) {\n                const MEMORY_TO_TEST_MAP = {\n                    0x81: { sceneId: \"0x02\", operation: \"0x01\" },\n                    0x82: { sceneId: \"0x02\", operation: \"0x02\" },\n                    0x83: { sceneId: \"0x03\", operation: \"0x01\" },\n                    0x84: { sceneId: \"0x03\", operation: \"0x02\" },\n                    0x85: { sceneId: \"0x04\", operation: \"0x01\" },\n                    0x86: { sceneId: \"0x04\", operation: \"0x02\" },\n                    0x87: { sceneId: \"0x05\", operation: \"0x01\" },\n                    0x88: { sceneId: \"0x05\", operation: \"0x02\" }\n                };\n\n                const SCENE_MEMORY_MAP = {\n                    \"0x02\": {\n                        name: \"會議室\", devices: [\n                            \"homeassistant/light/single/13/1\",\n                            \"homeassistant/light/single/13/2\",\n                            \"homeassistant/light/single/13/3\",\n                            \"homeassistant/light/dual/14/a\",\n                            \"homeassistant/light/dual/14/b\"\n                        ]\n                    },\n                    \"0x03\": {\n                        name: \"公共區\", devices: [\n                            \"homeassistant/light/single/11/1\",\n                            \"homeassistant/light/single/11/2\",\n                            \"homeassistant/light/single/12/1\",\n                            \"homeassistant/light/single/12/2\",\n                            \"homeassistant/light/single/12/3\",\n                            \"homeassistant/light/single/12/4\"\n                        ]\n                    },\n                    \"0x04\": {\n                        name: \"戶外\", devices: [\n                            \"homeassistant/light/single/18/1\",\n                            \"homeassistant/light/single/18/2\",\n                            \"homeassistant/light/single/19/1\",\n                            \"homeassistant/light/single/19/2\"\n                        ]\n                    },\n                    \"0x05\": {\n                        name: \"H40二樓\", devices: [\n                            \"homeassistant/light/single/15/1\",\n                            \"homeassistant/light/single/15/2\",\n                            \"homeassistant/light/single/16/1\",\n                            \"homeassistant/light/single/16/2\",\n                            \"homeassistant/light/single/17/1\",\n                            \"homeassistant/light/single/17/2\",\n                            \"homeassistant/light/single/18/1\",\n                            \"homeassistant/light/single/18/2\",\n                            \"homeassistant/light/single/19/1\",\n                            \"homeassistant/light/single/19/2\"\n                        ]\n                    }\n                };\n\n                const mapping = MEMORY_TO_TEST_MAP[operation];\n                if (!mapping) return null;\n\n                const targetSceneId = mapping.sceneId;\n                const targetOperation = mapping.operation;\n                const sceneInfo = SCENE_MEMORY_MAP[targetSceneId];\n                if (!sceneInfo) return null;\n\n                const opNames = { \"0x01\": \"ON\", \"0x02\": \"OFF\" };\n                const opName = opNames[targetOperation] || targetOperation;\n                const memoryTopic = `homeassistant/memory/${targetSceneId}/${targetOperation}/save/set`;\n                const buttonNum = operation - 0x80;\n\n                debugLog('hmi', `HMI記憶按鈕${buttonNum} → ${sceneInfo.name}_${opName}`);\n\n                return [{\n                    topic: memoryTopic,\n                    payload: JSON.stringify({\n                        scene_name: `${sceneInfo.name}_${opName}`,\n                        devices: sceneInfo.devices,\n                        timestamp: new Date().toISOString()\n                    })\n                }];\n            }\n\n            // 測試按鈕處理\n            const testSceneIds = [0x02, 0x03, 0x04, 0x05];\n            if ((operation === 0x01 || operation === 0x02) && testSceneIds.includes(sceneId)) {\n                const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;\n                const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;\n                debugLog('hmi', `HMI測試按鈕: 場景${sceneKey} 操作${opKey}`);\n                return [{\n                    topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,\n                    payload: \"ON\"\n                }];\n            }\n\n            // 一般場景控制\n            const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;\n            const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;\n            return [{\n                topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,\n                payload: \"ON\"\n            }];\n        }\n    },\n    // 燈光控制\n    {\n        name: \"light_control_unified\",\n        pattern: [0xEE, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00, null, null, 0xFF, 0xFC, 0xFF, 0xFF],\n        parse: (input) => {\n            const sceneId = input[4];\n            const functionId = input[6];\n            const valueHigh = input[10];\n            const valueLow = input[11];\n            const raw = (valueHigh << 8) + valueLow;\n\n            let value = Math.round((raw / 1000) * 100);\n            value = value < 0 ? 0 : value > 100 ? 100 : value;\n            let state = value > 0 ? \"ON\" : \"OFF\";\n\n            const LIGHT_MAP = {\n                \"0x1E-0x0B\": { topic: \"homeassistant/light/scene/single/11-1--11-2\", type: \"brightness\" },\n                \"0x1E-0x0D\": { topic: \"homeassistant/light/scene/single/12-1\", type: \"brightness\" },\n                \"0x1E-0x0F\": { topic: \"homeassistant/light/scene/single/12-2\", type: \"brightness\" },\n                \"0x1E-0x11\": { topic: \"homeassistant/light/scene/single/12-3--12-4\", type: \"brightness\" },\n                \"0x1F-0x0B\": { topic: \"homeassistant/light/dual/14/a\", type: \"brightness\" },\n                \"0x1F-0x0D\": { topic: \"homeassistant/light/dual/14/a\", type: \"colortemp\" },\n                \"0x1F-0x0F\": { topic: \"homeassistant/light/dual/14/b\", type: \"brightness\" },\n                \"0x1F-0x11\": { topic: \"homeassistant/light/dual/14/b\", type: \"colortemp\" }\n            };\n\n            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;\n            const config = LIGHT_MAP[key];\n            if (!config) return null;\n\n            const baseTopic = config.topic;\n\n            if (config.type === \"brightness\") {\n                debugLog('hmi', `HMI燈光控制: ${baseTopic} 亮度=${value}%`);\n                return [\n                    { topic: `${baseTopic}/set/brightness`, payload: value }\n                ];\n            } else if (config.type === \"colortemp\") {\n                const colortemp = Math.round(MAX_MIRED - ((MAX_MIRED - MIN_MIRED) * value / 100));\n                debugLog('hmi', `HMI燈光控制: ${baseTopic} 色溫=${colortemp} mired`);\n                return [\n                    { topic: `${baseTopic}/set/colortemp`, payload: colortemp }\n                ];\n            }\n            return null;\n        }\n    },\n    // 空調控制\n    {\n        name: \"hvac_power_mode\",\n        pattern: [0x01, 0x31, null, 0x01, 0x01, null],\n        parse: (input) => {\n            const powerValue = input[2];\n            const hvacId = input[5];\n            const mode = powerValue === 0x01 ? \"auto\" : \"off\";\n            debugLog('hmi', `HMI空調: ${hvacId} 模式=${mode}`);\n            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: mode }];\n        }\n    },\n    {\n        name: \"hvac_temperature\",\n        pattern: [0x01, 0x32, null, 0x01, 0x01, null],\n        parse: (input) => {\n            const tempValue = input[2];\n            const hvacId = input[5];\n            debugLog('hmi', `HMI空調: ${hvacId} 溫度=${tempValue}°C`);\n            return [{ topic: `homeassistant/hvac/200/${hvacId}/temperature/set`, payload: String(tempValue) }];\n        }\n    },\n    {\n        name: \"hvac_mode\",\n        pattern: [0x01, 0x33, null, 0x01, 0x01, null],\n        parse: (input) => {\n            const modeValue = input[2];\n            const hvacId = input[5];\n            const MODE_MAP = {\n                0x00: \"cool\",\n                0x01: \"dry\",\n                0x02: \"fan_only\",\n                0x04: \"heat\"\n            };\n            const mode = MODE_MAP[modeValue];\n            if (!mode) return null;\n            debugLog('hmi', `HMI空調: ${hvacId} 模式=${mode}`);\n            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: mode }];\n        }\n    },\n    {\n        name: \"hvac_fan_speed\",\n        pattern: [0x01, 0x34, null, 0x01, 0x01, null],\n        parse: (input) => {\n            const fanValue = input[2];\n            const hvacId = input[5];\n            const FAN_MAP = {\n                0x03: \"medium\",\n                0x04: \"high\",\n                0x07: \"low\"\n            };\n            const fan = FAN_MAP[fanValue];\n            if (!fan) return null;\n            const topicSuffix = hvacId === 1 ? \"fan/set\" : \"mode/fan\";\n            debugLog('hmi', `HMI空調: ${hvacId} 風量=${fan}`);\n            return [{ topic: `homeassistant/hvac/200/${hvacId}/${topicSuffix}`, payload: fan }];\n        }\n    }\n];\n\nfunction matchPattern(input, pattern) {\n    if (input.length !== pattern.length) return false;\n    for (let i = 0; i < pattern.length; i++) {\n        if (pattern[i] !== null && pattern[i] !== input[i]) {\n            return false;\n        }\n    }\n    return true;\n}\n\nfunction bufferToHexArray(buf) {\n    return [...buf].map(v => \"0x\" + v.toString(16).padStart(2, \"0\").toUpperCase());\n}\n\nif (!msg.payload || !Buffer.isBuffer(msg.payload)) {\n    debugLog('hmi', \"HMI收到無效的 payload\");\n    return null;\n}\n\nlet input = Array.from(msg.payload);\nlet result = null;\n\nfor (const p of HMI_pattern) {\n    if (matchPattern(input, p.pattern)) {\n        result = p.parse(input);\n        break;\n    }\n}\n\nif (result && Array.isArray(result) && result.length > 0) {\n    debugLog('hmi', `HMI收到: ${bufferToHexArray(msg.payload)} → ${result.length} 個 MQTT 指令`);\n    return [result];\n} else {\n    debugLog('hmi', `HMI收到: ${bufferToHexArray(msg.payload)} (未匹配)`);\n    return null;\n}",
         "outputs": 1,
@@ -526,20 +529,20 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 390,
-        "y": 2180,
+        "x": 400,
+        "y": 460,
         "wires": [
             [
-                "hmi_debug",
-                "e67cfaa863dbcbf7"
+                "0ab4658eca0e0bb1",
+                "5e502cf6efc922db"
             ]
         ]
     },
     {
-        "id": "hmi_debug",
+        "id": "0ab4658eca0e0bb1",
         "type": "debug",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "HMI 指令",
         "active": true,
         "tosidebar": true,
@@ -549,19 +552,62 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 650,
-        "y": 2180,
+        "x": 660,
+        "y": 460,
         "wires": []
     },
     {
-        "id": "comment_hmi",
+        "id": "d5d37d8b0a3705e6",
         "type": "comment",
-        "z": "14580213f897af9a",
-        "g": "108057c6b0820334",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
         "name": "HMI 觸控螢幕：窗簾/場景/燈光/空調控制",
         "info": "HMI 觸控螢幕輸入處理\n\n支援功能：\n🪟 窗簾控制 - 鐵捲門/會議室捲簾/布簾/紗簾/排煙窗\n🎬 場景控制 - 場景記憶/測試按鈕/一般場景\n💡 燈光控制 - 亮度/色溫調節\n❄️ 空調控制 - 開關/溫度/模式/風量\n\n流程：\nTCP In (8888) → HMI 處理器 → MQTT Out",
-        "x": 250,
-        "y": 2240,
+        "x": 280,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "7d1d2d36c7ac00b3",
+        "type": "inject",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
+        "name": "🔍 查詢所有記憶",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "homeassistant/memory/query/all",
+        "x": 200,
+        "y": 420,
+        "wires": [
+            [
+                "7fad3e3961c38f68"
+            ]
+        ]
+    },
+    {
+        "id": "92ebd28bb214682f",
+        "type": "debug",
+        "z": "2489f740882ffd1e",
+        "g": "b421607170cc0304",
+        "name": "記憶查詢結果",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 520,
         "wires": []
     },
     {
