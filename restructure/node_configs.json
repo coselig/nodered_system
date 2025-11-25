@@ -1,0 +1,328 @@
+{
+    "group": {
+        "id": "4f34c7547448a4f3",
+        "type": "group",
+        "z": "14580213f897af9a",
+        "g": "c7e2c547c268c2ae",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "bb3e2d1c2307f4df",
+            "988f47b73f552cb9",
+            "86383c3eec09415a",
+            "6fde0ff84f70efdf"
+        ],
+        "x": 594,
+        "y": 2319,
+        "w": 422,
+        "h": 122
+    },
+    "mqtt_in": {
+        "id": "a8db97e3282d584e",
+        "type": "mqtt in",
+        "z": "14580213f897af9a",
+        "g": "108057c6b0820334",
+        "name": "MQTT 訂閱所有控制",
+        "topic": "homeassistant/+/+/+/+/set/#",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "751ec40a6956d4f9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 2100,
+        "wires": [
+            [
+                "50313094f488b340"
+            ]
+        ]
+    },
+    "debug_nodes": [
+        {
+            "id": "d59a4d2f00fac520",
+            "type": "debug",
+            "z": "14580213f897af9a",
+            "g": "108057c6b0820334",
+            "name": "Modbus 指令",
+            "active": true,
+            "tosidebar": true,
+            "console": false,
+            "tostatus": false,
+            "complete": "payload",
+            "targetType": "msg",
+            "statusVal": "",
+            "statusType": "auto",
+            "x": 670,
+            "y": 2020,
+            "wires": []
+        },
+        {
+            "id": "846a05abdd99da9a",
+            "type": "debug",
+            "z": "14580213f897af9a",
+            "g": "108057c6b0820334",
+            "name": "Feedback 解析",
+            "active": true,
+            "tosidebar": true,
+            "console": false,
+            "tostatus": false,
+            "complete": "feedback",
+            "targetType": "msg",
+            "statusVal": "",
+            "statusType": "auto",
+            "x": 1120,
+            "y": 2060,
+            "wires": []
+        },
+        {
+            "id": "91359a179be62f4c",
+            "type": "debug",
+            "z": "14580213f897af9a",
+            "g": "108057c6b0820334",
+            "name": "MQTT 狀態回報",
+            "active": true,
+            "tosidebar": true,
+            "console": false,
+            "tostatus": false,
+            "complete": "true",
+            "targetType": "full",
+            "statusVal": "",
+            "statusType": "auto",
+            "x": 1120,
+            "y": 2180,
+            "wires": []
+        },
+        {
+            "id": "hmi_debug",
+            "type": "debug",
+            "z": "14580213f897af9a",
+            "g": "108057c6b0820334",
+            "name": "HMI 指令",
+            "active": true,
+            "tosidebar": true,
+            "console": false,
+            "tostatus": false,
+            "complete": "payload",
+            "targetType": "msg",
+            "statusVal": "",
+            "statusType": "auto",
+            "x": 650,
+            "y": 2180,
+            "wires": []
+        }
+    ],
+    "tcp_request": {
+        "id": "4f08be38e8e5a989",
+        "type": "tcp request",
+        "z": "14580213f897af9a",
+        "g": "108057c6b0820334",
+        "name": "TCP → Modbus",
+        "server": "192.168.1.208",
+        "port": "502",
+        "out": "time",
+        "ret": "buffer",
+        "splitc": "0",
+        "newline": "",
+        "trim": false,
+        "tls": "",
+        "x": 660,
+        "y": 2080,
+        "wires": [
+            [
+                "c543b1d15612a8c6"
+            ]
+        ]
+    },
+    "mqtt_out": {
+        "id": "e67cfaa863dbcbf7",
+        "type": "mqtt out",
+        "z": "14580213f897af9a",
+        "g": "108057c6b0820334",
+        "name": "MQTT 發布狀態",
+        "topic": "",
+        "qos": "0",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "751ec40a6956d4f9",
+        "x": 1120,
+        "y": 2120,
+        "wires": []
+    },
+    "debug": [
+        {
+            "id": "a141b323b80a0134",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "c7e2c547c268c2ae",
+            "name": "Debug 全開",
+            "props": [
+                {
+                    "p": "payload"
+                }
+            ],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "payload": "{\"topic\":true,\"cache\":true,\"modbus\":true,\"mqtt\":true,\"scene\":true,\"query\":true,\"hmi\":true}",
+            "payloadType": "json",
+            "x": 230,
+            "y": 2300,
+            "wires": [
+                [
+                    "f40af533710f330a"
+                ]
+            ]
+        },
+        {
+            "id": "9aa235d2b9190db5",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "c7e2c547c268c2ae",
+            "name": "Debug 全關",
+            "props": [
+                {
+                    "p": "payload"
+                }
+            ],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "payload": "{\"topic\":false,\"cache\":false,\"modbus\":false,\"mqtt\":false,\"scene\":false,\"query\":false,\"hmi\":false}",
+            "payloadType": "json",
+            "x": 230,
+            "y": 2340,
+            "wires": [
+                [
+                    "f40af533710f330a"
+                ]
+            ]
+        },
+        {
+            "id": "57b409a6f5cfbcaf",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "c7e2c547c268c2ae",
+            "name": "只看 Modbus",
+            "props": [
+                {
+                    "p": "payload"
+                }
+            ],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "payload": "{\"topic\":false,\"cache\":false,\"modbus\":true,\"mqtt\":false,\"scene\":false,\"query\":false,\"hmi\":false}",
+            "payloadType": "json",
+            "x": 240,
+            "y": 2380,
+            "wires": [
+                [
+                    "f40af533710f330a"
+                ]
+            ]
+        },
+        {
+            "id": "07ecc86a82f9ad28",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "c7e2c547c268c2ae",
+            "name": "顯示 Debug 配置",
+            "props": [],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "x": 250,
+            "y": 2420,
+            "wires": [
+                [
+                    "6f24912e538c90e0"
+                ]
+            ]
+        },
+        {
+            "id": "bb3e2d1c2307f4df",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "4f34c7547448a4f3",
+            "name": "清除快取",
+            "props": [],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "x": 700,
+            "y": 2360,
+            "wires": [
+                [
+                    "988f47b73f552cb9"
+                ]
+            ]
+        },
+        {
+            "id": "86383c3eec09415a",
+            "type": "inject",
+            "z": "14580213f897af9a",
+            "g": "4f34c7547448a4f3",
+            "name": "顯示快取",
+            "props": [],
+            "repeat": "",
+            "crontab": "",
+            "once": false,
+            "onceDelay": 0.1,
+            "topic": "",
+            "x": 700,
+            "y": 2400,
+            "wires": [
+                [
+                    "6fde0ff84f70efdf"
+                ]
+            ]
+        }
+    ],
+    "tcp_in": {
+        "id": "hmi_tcp_in",
+        "type": "tcp in",
+        "z": "14580213f897af9a",
+        "g": "108057c6b0820334",
+        "name": "HMI 輸入 (TCP)",
+        "server": "server",
+        "host": "0.0.0.0",
+        "port": "8888",
+        "datamode": "stream",
+        "datatype": "buffer",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 190,
+        "y": 2180,
+        "wires": [
+            [
+                "hmi_processor"
+            ]
+        ]
+    }
+}
