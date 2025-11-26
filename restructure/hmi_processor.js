@@ -84,7 +84,7 @@ const HMI_pattern = [
             return [{ topic: config.topic + topicSuffix, payload: payload }];
         }
     },
-    // 場景控制
+    // 場景控制（含測試按鈕）
     {
         name: "scene_unified",
         pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
@@ -174,16 +174,27 @@ const HMI_pattern = [
                 }];
             }
 
-            // 測試按鈕處理
-            const testSceneIds = [0x02, 0x03, 0x04, 0x05];
-            if ((operation === 0x01 || operation === 0x02) && testSceneIds.includes(sceneId)) {
-                const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
-                const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
-                debugLog('hmi', `HMI測試按鈕: 場景${sceneKey} 操作${opKey}`);
-                return [{
-                    topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
-                    payload: "ON"
-                }];
+            // 測試按鈕處理（test_buttons.md 8組）
+            const TEST_BUTTONS = [
+                { op: 0x01, id: 0x05 }, // H40二樓 ON
+                { op: 0x02, id: 0x05 }, // H40二樓 OFF
+                { op: 0x01, id: 0x02 }, // 會議室 ON
+                { op: 0x02, id: 0x02 }, // 會議室 OFF
+                { op: 0x01, id: 0x03 }, // 公共區 ON
+                { op: 0x02, id: 0x03 }, // 公共區 OFF
+                { op: 0x01, id: 0x04 }, // 戶外燈 ON
+                { op: 0x02, id: 0x04 }  // 戶外燈 OFF
+            ];
+            for (const btn of TEST_BUTTONS) {
+                if (operation === btn.op && sceneId === btn.id) {
+                    const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
+                    const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
+                    debugLog('hmi', `HMI測試按鈕: 場景${sceneKey} 操作${opKey}`);
+                    return [{
+                        topic: `homeassistant/scene/${sceneKey}/${opKey}/execute/set`,
+                        payload: "ON"
+                    }];
+                }
             }
 
             // 一般場景控制

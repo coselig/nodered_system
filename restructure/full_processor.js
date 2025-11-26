@@ -333,27 +333,27 @@ if (deviceType === "light") {
                     debugLog('modbus', `找不到通道 ${channel} 的寄存器`);
                     return null;
                 }
-                
+
                 let colortemp = val;
                 colortemp = clamp(Math.round(colortemp), MIN_MIRED, MAX_MIRED);
                 const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);
-                
+
                 const cmdColortemp = buildCommand(moduleId, regs[1], ctPercent);
-                
+
                 debugLog('modbus', `=== Modbus 指令 (Dual Colortemp Only) ===`);
                 debugLog('modbus', `色溫: ${cmdColortemp.toString('hex')}`);
-                
+
                 modbusMessages.push({ payload: cmdColortemp, subType, moduleId, channel, colortemp });
-                
+
                 node.status({
                     fill: "yellow",
                     shape: "dot",
                     text: `${moduleId}-${channel}: Colortemp ${colortemp}K`
                 });
-                
+
                 return [modbusMessages, []];
             }
-            
+
             // 亮度或色溫變更時，保持當前開關狀態不變
             // 0% 不會自動變成 OFF，需要明確發送 OFF 指令才會關閉
             const stateKey = `${subType}_${moduleId}_${channel}_state`;
@@ -483,7 +483,7 @@ if (deviceType === "light") {
         const sceneType = parts[3];  // single, dual
         const lights = parts[4].split("--");  // 12-1--12-2
         const state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
-        
+
         // Scene 快取 key 格式: scene_single_12-3--12-4_brightness
         const groupBrightnessKey = `scene_${sceneType}_${parts[4]}_brightness`;
         const groupColortempKey = `scene_${sceneType}_${parts[4]}_colortemp`;
@@ -498,7 +498,7 @@ if (deviceType === "light") {
         // 發送指令到每個燈光
         for (let light of lights) {
             const [lightId, lightChannel] = light.split("-");
-            
+
             // 先直接更新個別燈光的快取（不透過 MQTT）
             if (state === "ON" && groupBrightness !== undefined) {
                 flow.set(`${sceneType}_${lightId}_${lightChannel}_brightness`, groupBrightness);
@@ -508,7 +508,7 @@ if (deviceType === "light") {
                 flow.set(`${sceneType}_${lightId}_${lightChannel}_colortemp`, groupColortemp);
                 debugLog('scene', `更新快取: ${sceneType}_${lightId}_${lightChannel}_colortemp = ${groupColortemp}`);
             }
-            
+
             // 然後發送開關指令（會使用剛更新的快取）
             const lightTopic = `homeassistant/light/${sceneType}/${lightId}/${lightChannel}/set`;
             mqttMessages.push({ topic: lightTopic, payload: state });
@@ -529,7 +529,7 @@ if (deviceType === "light") {
 else if (deviceType === "cover") {
     // 格式: homeassistant/cover/general/12/set
     // payload: "1_2/3" 表示開啟 relay 1 和 2，關閉 relay 3
-    
+
     const relays = msg.payload.split("/");
     const on_relays = relays[0] ? relays[0].split("_").map(Number) : [];
     const off_relays = (relays[1] && relays[1].length > 0) ? relays[1].split("_").map(Number) : [];
@@ -565,14 +565,14 @@ else if (deviceType === "cover") {
 else if (deviceType === "query") {
     // 格式: homeassistant/query/{subType}/{moduleId}/{channel}
     // subType: single, dual, relay
-    
+
     const querySubType = subType;  // single, dual, relay
-    
+
     debugLog('query', `=== Query 查詢 ===`);
     debugLog('query', `類型: ${querySubType}, 模組: ${moduleId}, 通道: ${channel}`);
-    
+
     let frame;
-    
+
     if (querySubType === "single" || querySubType === "dual") {
         // 查詢 Single/Dual Light: Read Holding Registers (0x03)
         const reg = CHANNEL_REGISTER_MAP[channel];
@@ -580,54 +580,54 @@ else if (deviceType === "query") {
             debugLog('query', `找不到通道 ${channel} 的寄存器`);
             return null;
         }
-        
+
         const startReg = Array.isArray(reg) ? reg[0] : reg;  // dual 取第一個寄存器
         const quantity = Array.isArray(reg) ? 2 : 1;  // dual 讀 2 個，single 讀 1 個
-        
+
         const regHi = (startReg >> 8) & 0xFF;
         const regLo = startReg & 0xFF;
         const qtyHi = (quantity >> 8) & 0xFF;
         const qtyLo = quantity & 0xFF;
-        
+
         frame = Buffer.from([moduleId, 0x03, regHi, regLo, qtyHi, qtyLo]);
-        
+
         debugLog('query', `讀取寄存器: 0x${startReg.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
     }
     else if (querySubType === "relay") {
         // 查詢 Relay: Read Coils (0x01)
         const addr = CHANNEL_COIL_MAP[channel] || 0x0000;
         const quantity = 4;  // 讀取 4 個 coils
-        
+
         const addrHi = (addr >> 8) & 0xFF;
         const addrLo = addr & 0xFF;
         const qtyHi = (quantity >> 8) & 0xFF;
         const qtyLo = quantity & 0xFF;
-        
+
         frame = Buffer.from([moduleId, 0x01, addrHi, addrLo, qtyHi, qtyLo]);
-        
+
         debugLog('query', `讀取線圈: 0x${addr.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
     }
     else {
         debugLog('query', `不支援的查詢類型: ${querySubType}`);
         return null;
     }
-    
+
     const cmd = generalCommandBuild(frame);
-    
+
     debugLog('modbus', `=== Modbus 查詢指令 ===`);
     debugLog('modbus', `指令: ${cmd.toString('hex')}`);
-    
+
     // 將查詢資訊附加到每個訊息中，供 Feedback 使用
-    const queryMsg = { 
-        payload: cmd, 
-        deviceType: "query", 
-        subType: querySubType, 
-        moduleId, 
+    const queryMsg = {
+        payload: cmd,
+        deviceType: "query",
+        subType: querySubType,
+        moduleId,
         channel,
         queryInfo: { type: querySubType, channel: channel }
     };
     modbusMessages.push(queryMsg);
-    
+
     node.status({
         fill: "cyan",
         shape: "ring",
