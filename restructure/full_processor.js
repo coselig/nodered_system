@@ -179,7 +179,12 @@ if (deviceType === "memory") {
         // 儲存記憶：讀取所有設備當前狀態並儲存
         let memoryData;
         try {
-            memoryData = JSON.parse(msg.payload);
+            // 如果 payload 已經是 object，直接使用；否則解析 JSON
+            if (typeof msg.payload === 'object' && msg.payload !== null) {
+                memoryData = msg.payload;
+            } else {
+                memoryData = JSON.parse(msg.payload);
+            }
         } catch (e) {
             debugLog('topic', `記憶指令 JSON 解析失敗: ${e.message}`);
             return null;
