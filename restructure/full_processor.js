@@ -565,6 +565,98 @@ else if (deviceType === "cover") {
     });
 }
 
+// ========== HVAC DEVICE (空調控制) ==========
+else if (deviceType === "hvac") {
+    // 格式: homeassistant/hvac/{s200Id}/{hvacId}/{action}/set
+    // 範例: homeassistant/hvac/200/1/mode/set (payload: "cool")
+    //       homeassistant/hvac/200/1/temperature/set (payload: 25)
+    //       homeassistant/hvac/200/1/fan/set (payload: "auto")
+
+    const s200Id = parseInt(parts[2]);      // S200 模組 ID (通常是 200)
+    const hvacId = parseInt(parts[3]);      // HVAC 設備 ID (1, 2, 3...)
+    const hvacAction = parts[4];            // mode, fan, temperature
+    const payload = msg.payload;
+
+    const baseAddress = 0x100;
+    const speed = 0x00; // HVAC 統一使用 0x00 (立即執行)
+
+    const modeMap = {
+        "cool": 0,
+        "heat": 1,
+        "dry": 2,
+        "fan_only": 3,
+        "off": 4
+    };
+
+    const fanModeMap = {
+        "auto": 0,
+        "low": 1,
+        "medium": 2,
+        "high": 3
+    };
+
+    let register, value;
+
+    debugLog('topic', `=== HVAC 控制 ===`);
+    debugLog('topic', `S200 ID: ${s200Id}, HVAC ID: ${hvacId}, 動作: ${hvacAction}, 值: ${payload}`);
+
+    switch (hvacAction) {
+        case "mode":
+            register = baseAddress + hvacId * 8 + 1;
+            value = modeMap[payload];
+            debugLog('modbus', `模式設定: ${payload} -> ${value}`);
+            break;
+
+        case "fan":
+            register = baseAddress + hvacId * 8 + 2;
+            value = fanModeMap[payload];
+            debugLog('modbus', `風速設定: ${payload} -> ${value}`);
+            break;
+
+        case "temperature":
+            register = baseAddress + hvacId * 8 + 3;
+            value = parseFloat(payload);
+            debugLog('modbus', `溫度設定: ${value}°C`);
+            break;
+
+        default:
+            debugLog('topic', `未知的 HVAC 動作: ${hvacAction}`);
+            return null;
+    }
+
+    if (value === undefined || value === null) {
+        debugLog('topic', `無效的 HVAC 值: ${payload}`);
+        return null;
+    }
+
+    const regHi = (register >> 8) & 0xFF;
+    const regLo = register & 0xFF;
+
+    // s200Id, 0x06, regHi, regLo, speed, value
+    const frame = Buffer.from([
+        s200Id,
+        0x06,
+        regHi,
+        regLo,
+        speed,
+        value
+    ]);
+
+    const cmd = generalCommandBuild(frame);
+
+    debugLog('modbus', `=== Modbus 指令 (HVAC) ===`);
+    debugLog('modbus', `寄存器: 0x${register.toString(16).padStart(4, '0')}`);
+    debugLog('modbus', `指令: ${cmd.toString('hex')}`);
+
+    modbusMessages.push({ payload: cmd, deviceType, s200Id, hvacId, hvacAction, value });
+
+    node.status({
+        fill: "orange",
+        shape: "dot",
+        text: `HVAC ${hvacId}: ${hvacAction}=${payload}`
+    });
+}
+
 
 // ========== QUERY DEVICE (查詢) ==========
 else if (deviceType === "query") {

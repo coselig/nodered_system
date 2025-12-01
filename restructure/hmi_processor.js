@@ -27,63 +27,63 @@ function debugLog(category, message) {
 }
 
 const HMI_pattern = [
-    // 窗簾控制
-    {
-        name: "curtain_control",
-        pattern: [null, 0x06, 0x01, 0x9b, 0x00, null, null, null],
-        parse: (input) => {
-            const curtainId = input[0];
-            const action = input[5];
+    // 窗簾控制（暫時停用 - 直接發 MQTT）
+    // {
+    //     name: "curtain_control",
+    //     pattern: [null, 0x06, 0x01, 0x9b, 0x00, null, null, null],
+    //     parse: (input) => {
+    //         const curtainId = input[0];
+    //         const action = input[5];
 
-            const CURTAIN_MAP = {
-                0x15: { topic: "homeassistant/cover/curtain/21/ocs/set", type: "ocs" },
-                0x16: { topic: "homeassistant/cover/curtain/22/oc/set", type: "oc" },
-                0x17: { topic: "homeassistant/cover/curtain/23", type: "multi" }
-            };
+    //         const CURTAIN_MAP = {
+    //             0x15: { topic: "homeassistant/cover/curtain/21/ocs/set", type: "ocs" },
+    //             0x16: { topic: "homeassistant/cover/curtain/22/oc/set", type: "oc" },
+    //             0x17: { topic: "homeassistant/cover/curtain/23", type: "multi" }
+    //         };
 
-            const config = CURTAIN_MAP[curtainId];
-            if (!config) return null;
+    //         const config = CURTAIN_MAP[curtainId];
+    //         if (!config) return null;
 
-            let payload, topicSuffix;
+    //         let payload, topicSuffix;
 
-            if (config.type === "ocs") {
-                const ACTION_MAP_OCS = {
-                    0x01: "1/2-3",
-                    0x04: "2/1-3",
-                    0x02: "3/1-2"
-                };
-                payload = ACTION_MAP_OCS[action];
-                topicSuffix = "/set";
-            } else if (config.type === "oc") {
-                const ACTION_MAP_OC = {
-                    0x01: "1/2",
-                    0x02: "2/1",
-                    0x03: "1-2/"
-                };
-                payload = ACTION_MAP_OC[action];
-                topicSuffix = "/set";
-            } else if (config.type === "multi") {
-                const ACTION_MAP_MULTI = {
-                    0x01: { suffix: "/oc/set", payload: "1/2" },
-                    0x03: { suffix: "/oc/set", payload: "1_2/" },
-                    0x02: { suffix: "/oc/set", payload: "2/1" },
-                    0x04: { suffix: "/oc/set", payload: "3/4" },
-                    0x0C: { suffix: "/oc/set", payload: "3_4/" },
-                    0x08: { suffix: "/oc/set", payload: "4/3" },
-                    0x10: { suffix: "/ocs/set", payload: "5/6_7" },
-                    0x40: { suffix: "/ocs/set", payload: "7/5_6" },
-                    0x20: { suffix: "/ocs/set", payload: "6/5_7" }
-                };
-                const actionConfig = ACTION_MAP_MULTI[action];
-                if (!actionConfig) return null;
-                topicSuffix = actionConfig.suffix;
-                payload = actionConfig.payload;
-            }
+    //         if (config.type === "ocs") {
+    //             const ACTION_MAP_OCS = {
+    //                 0x01: "1/2-3",
+    //                 0x04: "2/1-3",
+    //                 0x02: "3/1-2"
+    //             };
+    //             payload = ACTION_MAP_OCS[action];
+    //             topicSuffix = "/set";
+    //         } else if (config.type === "oc") {
+    //             const ACTION_MAP_OC = {
+    //                 0x01: "1/2",
+    //                 0x02: "2/1",
+    //                 0x03: "1-2/"
+    //             };
+    //             payload = ACTION_MAP_OC[action];
+    //             topicSuffix = "/set";
+    //         } else if (config.type === "multi") {
+    //             const ACTION_MAP_MULTI = {
+    //                 0x01: { suffix: "/oc/set", payload: "1/2" },
+    //                 0x03: { suffix: "/oc/set", payload: "1_2/" },
+    //                 0x02: { suffix: "/oc/set", payload: "2/1" },
+    //                 0x04: { suffix: "/oc/set", payload: "3/4" },
+    //                 0x0C: { suffix: "/oc/set", payload: "3_4/" },
+    //                 0x08: { suffix: "/oc/set", payload: "4/3" },
+    //                 0x10: { suffix: "/ocs/set", payload: "5/6_7" },
+    //                 0x40: { suffix: "/ocs/set", payload: "7/5_6" },
+    //                 0x20: { suffix: "/ocs/set", payload: "6/5_7" }
+    //             };
+    //             const actionConfig = ACTION_MAP_MULTI[action];
+    //             if (!actionConfig) return null;
+    //             topicSuffix = actionConfig.suffix;
+    //             payload = actionConfig.payload;
+    //         }
 
-            if (!payload) return null;
-            return [{ topic: config.topic + topicSuffix, payload: payload }];
-        }
-    },
+    //         if (!payload) return null;
+    //         return [{ topic: config.topic + topicSuffix, payload: payload }];
+    //     }
+    // },
     // 場景控制（含測試按鈕）
     {
         name: "scene_unified",
