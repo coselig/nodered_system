@@ -251,6 +251,61 @@ const HMI_pattern = [
             }];
         }
     },
+    // 單色燈帶數值控制 - 新格式 0x11 帶數值(狀態同步) ⚠️ 必須放在 light_control_unified 之前!
+    {
+        name: "single_light_with_value",
+        pattern: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00, null, null, 0xFF, 0xFC, 0xFF, 0xFF],
+        parse: (input) => {
+            const sceneId = input[6];      // byte[6]: 場景ID
+            const functionId = input[8];   // byte[8]: 功能ID
+            const valueHigh = input[12];   // byte[12-13]: 數值 0-1000
+            const valueLow = input[13];
+            const raw = (valueHigh << 8) + valueLow;
+
+            // 映射表: 單燈 + scene
+            const SINGLE_MAP = {
+                "0x20-0x0B": { 
+                    topic: "homeassistant/light/single/20/1", 
+                    sceneTopic: "homeassistant/light/scene/single/20-1",
+                    name: "會議間照" 
+                },
+                "0x20-0x0D": { 
+                    topic: "homeassistant/light/single/20/2", 
+                    sceneTopic: "homeassistant/light/scene/single/20-2",
+                    name: "冷氣間照" 
+                },
+                "0x20-0x0F": { 
+                    topic: "homeassistant/light/single/20/3", 
+                    sceneTopic: "homeassistant/light/scene/single/20-3",
+                    name: "會議崁燈" 
+                }
+            };
+
+            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;
+            const config = SINGLE_MAP[key];
+            if (!config) return null;
+
+            const brightness = Math.round((raw / 1000) * 100);
+            const state = brightness > 0 ? "ON" : "OFF";
+            
+            debugLog('hmi', `HMI單色燈亮度: ${config.name} ${config.topic} 亮度=${brightness}%`);
+            
+            const commands = [
+                { topic: `${config.topic}/state`, payload: state },
+                { topic: `${config.topic}/brightness`, payload: brightness }
+            ];
+            
+            // 同步 scene 狀態
+            if (config.sceneTopic) {
+                commands.push(
+                    { topic: `${config.sceneTopic}/state`, payload: state },
+                    { topic: `${config.sceneTopic}/brightness`, payload: brightness }
+                );
+            }
+            
+            return commands;
+        }
+    },
     {
         name: "light_control_unified",
         pattern: [

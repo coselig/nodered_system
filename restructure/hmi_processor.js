@@ -27,63 +27,27 @@ function debugLog(category, message) {
 }
 
 const HMI_pattern = [
-    // 窗簾控制（暫時停用 - 直接發 MQTT）
-    // {
-    //     name: "curtain_control",
-    //     pattern: [null, 0x06, 0x01, 0x9b, 0x00, null, null, null],
-    //     parse: (input) => {
-    //         const curtainId = input[0];
-    //         const action = input[5];
+    // 窗簾/鐵捲門控制 - 觸發 HA 查詢模式（HMI 直接控制設備，發送 query 讓 HA 更新狀態）
+    {
+        name: "curtain_control",
+        pattern: [null, 0x06, 0x01, 0x9b, 0x00, null, null, null],
+        parse: (input) => {
+            const curtainId = input[0];
+            const action = input[5];
 
-    //         const CURTAIN_MAP = {
-    //             0x15: { topic: "homeassistant/cover/curtain/21/ocs/set", type: "ocs" },
-    //             0x16: { topic: "homeassistant/cover/curtain/22/oc/set", type: "oc" },
-    //             0x17: { topic: "homeassistant/cover/curtain/23", type: "multi" }
-    //         };
+            const CURTAIN_MAP = {
+                0x15: { topic: "homeassistant/cover/curtain/21/query" },  // 鐵捲門
+                0x16: { topic: "homeassistant/cover/curtain/22/query" },  // 會議室捲簾
+                0x17: { topic: "homeassistant/cover/curtain/23/query" }   // 多組窗簾
+            };
 
-    //         const config = CURTAIN_MAP[curtainId];
-    //         if (!config) return null;
+            const config = CURTAIN_MAP[curtainId];
+            if (!config) return null;
 
-    //         let payload, topicSuffix;
-
-    //         if (config.type === "ocs") {
-    //             const ACTION_MAP_OCS = {
-    //                 0x01: "1/2-3",
-    //                 0x04: "2/1-3",
-    //                 0x02: "3/1-2"
-    //             };
-    //             payload = ACTION_MAP_OCS[action];
-    //             topicSuffix = "/set";
-    //         } else if (config.type === "oc") {
-    //             const ACTION_MAP_OC = {
-    //                 0x01: "1/2",
-    //                 0x02: "2/1",
-    //                 0x03: "1-2/"
-    //             };
-    //             payload = ACTION_MAP_OC[action];
-    //             topicSuffix = "/set";
-    //         } else if (config.type === "multi") {
-    //             const ACTION_MAP_MULTI = {
-    //                 0x01: { suffix: "/oc/set", payload: "1/2" },
-    //                 0x03: { suffix: "/oc/set", payload: "1_2/" },
-    //                 0x02: { suffix: "/oc/set", payload: "2/1" },
-    //                 0x04: { suffix: "/oc/set", payload: "3/4" },
-    //                 0x0C: { suffix: "/oc/set", payload: "3_4/" },
-    //                 0x08: { suffix: "/oc/set", payload: "4/3" },
-    //                 0x10: { suffix: "/ocs/set", payload: "5/6_7" },
-    //                 0x40: { suffix: "/ocs/set", payload: "7/5_6" },
-    //                 0x20: { suffix: "/ocs/set", payload: "6/5_7" }
-    //             };
-    //             const actionConfig = ACTION_MAP_MULTI[action];
-    //             if (!actionConfig) return null;
-    //             topicSuffix = actionConfig.suffix;
-    //             payload = actionConfig.payload;
-    //         }
-
-    //         if (!payload) return null;
-    //         return [{ topic: config.topic + topicSuffix, payload: payload }];
-    //     }
-    // },
+            debugLog('hmi', `HMI窗簾操作: curtainId=0x${curtainId.toString(16).toUpperCase()} action=0x${action.toString(16).toUpperCase()} → 發送query`);
+            return [{ topic: config.topic, payload: "query" }];
+        }
+    },
     // 場景控制（含測試按鈕）- 狀態同步模式
     {
         name: "scene_unified",
@@ -159,7 +123,7 @@ const HMI_pattern = [
 
                 const opNames = { "0x01": "ON", "0x02": "OFF" };
                 const opName = opNames[targetOperation] || targetOperation;
-                const memoryTopic = `homeassistant/memory/${targetSceneId}/${targetOperation}/save/set`;
+                const memoryTopic = `homeassistant/memory/${targetSceneId}/${targetOperation}/save/state`;
                 const buttonNum = operation - 0x80;
 
                 debugLog('hmi', `HMI記憶按鈕${buttonNum} → ${sceneInfo.name}_${opName}`);
@@ -251,6 +215,175 @@ const HMI_pattern = [
                     { topic: `${baseTopic}/colortemp`, payload: colortemp }
                 ];
             }
+            return null;
+        }
+    },
+    // 雙色溫燈控制 - 新格式 0x11 帶數值(狀態同步) ⚠️ 必須放在 single_light_control 之前!
+    {
+        name: "dual_light",
+        pattern: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, 0x1F, 0x00, null, 0x13, 0x00, 0x00, null, null, 0xFF, 0xFC, 0xFF, 0xFF],
+        parse: (input) => {
+            const functionId = input[8];   // byte[8]: 功能ID (0x0B=亮度, 0x0D=色溫)
+            const valueHigh = input[12];   // byte[12-13]: 數值 0-1000
+            const valueLow = input[13];
+            const raw = (valueHigh << 8) + valueLow;
+
+            // 映射: 0x0B=A亮度, 0x0D=A色溫, 0x0F=B亮度, 0x11=B色溫
+            const DUAL_MAP = {
+                0x0B: { topic: "homeassistant/light/dual/14/a", type: "brightness" },
+                0x0D: { topic: "homeassistant/light/dual/14/a", type: "colortemp" },
+                0x0F: { topic: "homeassistant/light/dual/14/b", type: "brightness" },
+                0x11: { topic: "homeassistant/light/dual/14/b", type: "colortemp" }
+            };
+
+            const config = DUAL_MAP[functionId];
+            if (!config) return null;
+
+            const baseTopic = config.topic;
+
+            if (config.type === "brightness") {
+                const brightness = Math.round((raw / 1000) * 100);
+                const state = brightness > 0 ? "ON" : "OFF";
+                debugLog('hmi', `HMI雙色溫燈亮度: ${baseTopic} 亮度=${brightness}%`);
+                return [
+                    { topic: `${baseTopic}/state`, payload: state },
+                    { topic: `${baseTopic}/brightness`, payload: brightness }
+                ];
+            } else if (config.type === "colortemp") {
+                const percentage = Math.round((raw / 1000) * 100);
+                const colortemp = Math.round(MAX_MIRED - ((MAX_MIRED - MIN_MIRED) * percentage / 100));
+                debugLog('hmi', `HMI雙色溫燈色溫: ${baseTopic} 色溫=${colortemp} mired (${percentage}%)`);
+                return [
+                    { topic: `${baseTopic}/colortemp`, payload: colortemp }
+                ];
+            }
+
+            return null;
+        }
+    },
+    // 單色燈帶數值控制 - 新格式 0x11 帶數值(狀態同步) ⚠️ 必須放在 single_light_control 之前!
+    {
+        name: "single_light_with_value",
+        pattern: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00, null, null, 0xFF, 0xFC, 0xFF, 0xFF],
+        parse: (input) => {
+            const sceneId = input[6];      // byte[6]: 場景ID
+            const functionId = input[8];   // byte[8]: 功能ID
+            const valueHigh = input[12];   // byte[12-13]: 數值 0-1000
+            const valueLow = input[13];
+            const raw = (valueHigh << 8) + valueLow;
+
+            // 映射表: 單燈 + scene
+            const SINGLE_MAP = {
+                "0x20-0x0B": { 
+                    topic: "homeassistant/light/single/13/1", 
+                    sceneTopic: "homeassistant/light/scene/single/13-1",
+                    name: "會議間照" 
+                },
+                "0x20-0x0D": { 
+                    topic: "homeassistant/light/single/13/2", 
+                    sceneTopic: "homeassistant/light/scene/single/13-2",
+                    name: "冷氣間照" 
+                },
+                "0x20-0x0F": { 
+                    topic: "homeassistant/light/single/13/3", 
+                    sceneTopic: "homeassistant/light/scene/single/13-3",
+                    name: "會議崁燈" 
+                }
+            };
+
+            const key = `0x${sceneId.toString(16).toUpperCase().padStart(2, '0')}-0x${functionId.toString(16).toUpperCase().padStart(2, '0')}`;
+            const config = SINGLE_MAP[key];
+            if (!config) {
+                debugLog('hmi', `HMI單色燈未匹配: key="${key}" sceneId=${sceneId}(0x${sceneId.toString(16).toUpperCase()}) functionId=${functionId}(0x${functionId.toString(16).toUpperCase()})`);
+                return null;
+            }
+
+            const brightness = Math.round((raw / 1000) * 100);
+            const state = brightness > 0 ? "ON" : "OFF";
+            
+            debugLog('hmi', `HMI單色燈亮度: ${config.name} ${config.topic} 亮度=${brightness}%`);
+            
+            const commands = [
+                { topic: `${config.topic}/state`, payload: state },
+                { topic: `${config.topic}/brightness`, payload: brightness }
+            ];
+            
+            // 同步 scene 狀態
+            if (config.sceneTopic) {
+                commands.push(
+                    { topic: `${config.sceneTopic}/state`, payload: state },
+                    { topic: `${config.sceneTopic}/brightness`, payload: brightness }
+                );
+            }
+            
+            return commands;
+        }
+    },
+    // 單色燈控制 - 新格式 0x11 控制指令(觸發查詢)
+    {
+        name: "single_light_control",
+        pattern: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00],
+        parse: (input) => {
+            const sceneId = input[6];      // byte[6]: 場景ID (例如 0x1E)
+            const functionId = input[8];   // byte[8]: 功能ID (例如 0x0B)
+
+            const CORRIDOR_MAP = {
+                "0x1E-0x0B": "homeassistant/light/scene/single/11-1--11-2",
+                "0x1E-0x0D": "homeassistant/light/scene/single/12-1",
+                "0x1E-0x0F": "homeassistant/light/scene/single/12-2",
+                "0x1E-0x11": "homeassistant/light/scene/single/12-3--12-4",
+                "0x1F-0x0B": "homeassistant/light/dual/14/a",  // 會議室 A 亮度
+                "0x1F-0x0F": "homeassistant/light/dual/14/b"   // 會議室 B 亮度
+            };
+
+            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;
+            const baseTopic = CORRIDOR_MAP[key];
+
+            if (!baseTopic) return null;
+
+            debugLog('hmi', `HMI單色燈狀態: 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} → 同步狀態`);
+            return [{ topic: `${baseTopic}/state`, payload: "ON" }];
+        }
+    },
+    // 單色燈設定值 - 新格式 0x12 ASCII 字串(觸發查詢)
+    {
+        name: "single_light_value",
+        pattern: [0xEE, 0x00, 0x65, 0xB1, 0x12, 0x00, null, 0x00, null, 0x00, null],
+        parse: (input) => {
+            const sceneId = input[6];      // byte[6]: 場景ID (例如 0x1E)
+            const functionId = input[8];   // byte[8]: 功能ID (例如 0x15)
+            const length = input[10];      // byte[10]: ASCII 字串長度
+
+            const CORRIDOR_MAP = {
+                "0x1E-0x15": "homeassistant/light/scene/single/11-1--11-2",
+                "0x1E-0x17": "homeassistant/light/scene/single/12-1",
+                "0x1E-0x19": "homeassistant/light/scene/single/12-2",
+                "0x1E-0x1B": "homeassistant/light/scene/single/12-3--12-4",
+                "0x1F-0x1D": "homeassistant/light/dual/14/a",  // 會議室 A 亮度值
+                "0x1F-0x21": "homeassistant/light/dual/14/b"   // 會議室 B 亮度值
+            };
+
+            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;
+            const baseTopic = CORRIDOR_MAP[key];
+
+            if (!baseTopic) return null;
+
+            // 提取 ASCII 數值（亮度百分比）
+            if (length > 0 && input.length >= 11 + length) {
+                let valueStr = '';
+                for (let i = 0; i < length; i++) {
+                    valueStr += String.fromCharCode(input[11 + i]);
+                }
+                const brightness = parseInt(valueStr);
+                if (!isNaN(brightness)) {
+                    debugLog('hmi', `HMI單色燈亮度: 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} 亮度=${brightness}%`);
+                    return [
+                        { topic: `${baseTopic}/state`, payload: brightness > 0 ? "ON" : "OFF" },
+                        { topic: `${baseTopic}/brightness`, payload: brightness }
+                    ];
+                }
+            }
+
             return null;
         }
     },
@@ -421,10 +554,18 @@ if (!msg.payload || !Buffer.isBuffer(msg.payload)) {
 
 let input = Array.from(msg.payload);
 let result = null;
+let matchedPattern = null;
 
 for (const p of HMI_pattern) {
     if (matchPattern(input, p.pattern)) {
+        matchedPattern = p.name;
+        debugLog('hmi', `✓ 匹配到 pattern: ${p.name}`);
         result = p.parse(input);
+        if (result) {
+            debugLog('hmi', `✓ parse 成功,返回 ${result.length} 個指令`);
+        } else {
+            debugLog('hmi', `✗ parse 返回 null`);
+        }
         break;
     }
 }
@@ -433,6 +574,6 @@ if (result && Array.isArray(result) && result.length > 0) {
     debugLog('hmi', `HMI收到: ${bufferToHexArray(msg.payload)} → ${result.length} 個 MQTT 指令`);
     return [result];
 } else {
-    debugLog('hmi', `HMI收到: ${bufferToHexArray(msg.payload)} (未匹配)`);
+    debugLog('hmi', `HMI收到: ${bufferToHexArray(msg.payload)} (${matchedPattern ? `匹配 ${matchedPattern} 但 parse 失敗` : '未匹配'})`);
     return null;
 }
