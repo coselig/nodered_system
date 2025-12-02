@@ -1,0 +1,277 @@
+[
+    {
+        "id": "552e6128d9088555",
+        "type": "group",
+        "z": "2489f740882ffd1e",
+        "name": "RGB",
+        "style": {
+            "label": true
+        },
+        "nodes": [
+            "d331a4fc86a45eeb",
+            "94b3e18804a22903",
+            "357302d625325269",
+            "f85503903eab5261",
+            "85103d7f2e6cf671",
+            "b38cc34dfed97a61",
+            "012fbdf3c914f07c",
+            "a58be8ef94f12d0c",
+            "73f349590b7b8ac0",
+            "5ac69e183f1d4588",
+            "2986bb33fa8554e2"
+        ],
+        "x": 54,
+        "y": 679,
+        "w": 682,
+        "h": 322
+    },
+    {
+        "id": "d331a4fc86a45eeb",
+        "type": "inject",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 150,
+        "y": 720,
+        "wires": [
+            [
+                "94b3e18804a22903"
+            ]
+        ]
+    },
+    {
+        "id": "94b3e18804a22903",
+        "type": "function",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "mqtt discovery",
+        "func": "let devices = [\n    { id: \"rgb_2\" },\n];\n\n// 這裡會建立一個 array，包含每個裝置的 MQTT 訊息\nlet msgs = [];\nfor (let d of devices) {\n    let path = d.id.replace(\"_\", \"/\");\n    let topicBase = `homeassistant/light/${path}`;\n    let msgObj = {\n        topic: `${topicBase}/config`,\n        retain: true,\n        payload: {\n            name: d.id,\n            unique_id: d.id,\n            state_topic: `${topicBase}/state`,\n            command_topic: `${topicBase}/set`,\n            brightness: true,\n            brightness_state_topic: `${topicBase}/brightness`,\n            brightness_command_topic: `${topicBase}/set/brightness`,\n            rgb: true,\n            rgb_state_topic: `${topicBase}/rgb`,\n            rgb_command_topic: `${topicBase}/set/rgb`,\n            payload_on: \"ON\",\n            payload_off: \"OFF\",\n            brightness_scale: 100,\n            optimistic: true\n        }\n    };\n\n    msgs.push({ payload: msgObj.payload, topic: msgObj.topic, retain: msgObj.retain });\n}\n\n// Node-RED function node 可以一次回傳多個訊息\nreturn [msgs];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 720,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "357302d625325269",
+        "type": "mqtt in",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "topic": "homeassistant/light/rgb/2/set/brightness",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "751ec40a6956d4f9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 240,
+        "y": 780,
+        "wires": [
+            [
+                "012fbdf3c914f07c"
+            ]
+        ]
+    },
+    {
+        "id": "f85503903eab5261",
+        "type": "mqtt in",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "topic": "homeassistant/light/rgb/2/set/rgb",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "751ec40a6956d4f9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 210,
+        "y": 840,
+        "wires": [
+            [
+                "a58be8ef94f12d0c"
+            ]
+        ]
+    },
+    {
+        "id": "85103d7f2e6cf671",
+        "type": "mqtt in",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "topic": "homeassistant/light/rgb/2/set",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "751ec40a6956d4f9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 200,
+        "y": 900,
+        "wires": [
+            [
+                "b38cc34dfed97a61"
+            ]
+        ]
+    },
+    {
+        "id": "b38cc34dfed97a61",
+        "type": "function",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "寫指令",
+        "func": "// CRC16\nfunction crc16(buf) {\n    let crc = 0xFFFF;\n    for (const b of buf) {\n        crc ^= b;\n        for (let i = 0; i < 8; i++) {\n            crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);\n        }\n    }\n    return crc;\n}\n\n// ===================== 主流程 =====================\n// 1. 取得原始亮度 (從 flow 變數)\nlet rawBrightness = flow.get(\"rgb_2_brightness\");\n\n// 防呆：如果尚未收到亮度訊號，預設最大亮度，避免運算錯誤\nif (rawBrightness === undefined || rawBrightness === null) {\n    rawBrightness = 100;\n}\n\n// 2. [新增] 亮度映射邏輯\n// 將 0-255 映射到 20-255\n// 公式：Output = Min + (Input / 255) * (Max - Min)\nlet minLevel = 10;  // 你設定的最低亮度\nlet maxLevel = 100; // 最大亮度\n\n// 進行映射計算 (四捨五入)\nlet brightness = Math.round(minLevel + (rawBrightness / 100) * (maxLevel - minLevel));\n\n// 3. 取得 RGB 值\nlet rgbString = flow.get(\"rgb_2_rgb\");\n// 防呆：如果沒有 RGB 值，給預設白光\nif (!rgbString) rgbString = \"255,255,255\";\n\n// --- 解析 RGB 字串 ---\nconst rgbArray = rgbString.split(\",\").map(val => parseInt(val.trim(), 10));\nlet [r_ha, g_ha, b_ha] = rgbArray;\n\n// --- WRGB 演算法 ---\n// 1. 計算白光成分（取 RGB 三色的最小值作為白光）\nlet w = Math.min(r_ha, g_ha, b_ha);\n\n// 2. 將原 RGB 扣除白光成分\nlet r = r_ha - w;\nlet g = g_ha - w;\nlet b = b_ha - w;\n\n// 總和權重\nlet totalWeight = r + g + b + w;\nif (totalWeight === 0) totalWeight = 1; // 避免除以 0\n\n// 計算各通道實際 PWM 值\nlet whiteBrightness = Math.round(brightness * w / totalWeight);\nlet redBrightness = Math.round(brightness * r / totalWeight);\nlet greenBrightness = Math.round(brightness * g / totalWeight);\nlet blueBrightness = Math.round(brightness * b / totalWeight);\n\n\n\nif (msg.payload == \"OFF\"){\n    // 組指令\n    let cmd = Buffer.from([0x0b, 0x10, 0x08, 0x29, 0x00, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00]);\n    // 加 CRC16\n    const crc = crc16(cmd);\n    msg.payload = Buffer.concat([cmd, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])])\n    return msg;\n}else if(msg.payload == \"ON\") {\n    // 組指令\n    let cmd = Buffer.from([0x0b, 0x10, 0x08, 0x29, 0x00, 0x02, 0x04, redBrightness, greenBrightness, blueBrightness, whiteBrightness]);\n    // 加 CRC16\n    const crc = crc16(cmd);\n    msg.payload = Buffer.concat([cmd, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])])\n    return msg;\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 900,
+        "wires": [
+            [
+                "73f349590b7b8ac0"
+            ]
+        ]
+    },
+    {
+        "id": "012fbdf3c914f07c",
+        "type": "function",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "brightness",
+        "func": "const topic = String(msg.topic || \"\");\nconst parts = topic.split(\"/\");\nconst id = parts[3];\nconst key = `rgb_${id}_brightness`;\n\n// 驗證 payload\nlet val = Number(msg.payload);\nif (!Number.isFinite(val)) return null;\n\n// 更新快取\nflow.set(key, val);\nnode.status({ fill: \"green\", shape: \"dot\", text: `${key}=${val}` });\n\nreturn null; // 只更新快取，不往下傳\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 780,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a58be8ef94f12d0c",
+        "type": "function",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "color",
+        "func": "const topic = String(msg.topic || \"\");\nconst parts = topic.split(\"/\");\nconst id = parts[3];\nconst key = `rgb_${id}_rgb`;\nlet val = msg.payload;\nflow.set(key, val);\nnode.status({ fill: \"green\", shape: \"dot\", text: `${key}=${val}` });\nreturn null; // 只更新快取，不往下傳",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 840,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "73f349590b7b8ac0",
+        "type": "tcp out",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "host": "192.168.1.229",
+        "port": "1030",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 600,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "5ac69e183f1d4588",
+        "type": "tcp in",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "",
+        "server": "client",
+        "host": "192.168.1.229",
+        "port": "1030",
+        "datamode": "stream",
+        "datatype": "buffer",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 180,
+        "y": 960,
+        "wires": [
+            [
+                "2986bb33fa8554e2"
+            ]
+        ]
+    },
+    {
+        "id": "2986bb33fa8554e2",
+        "type": "debug",
+        "z": "2489f740882ffd1e",
+        "g": "552e6128d9088555",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 380,
+        "y": 960,
+        "wires": []
+    },
+    {
+        "id": "751ec40a6956d4f9",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "192.168.1.233",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

@@ -45,8 +45,15 @@ if (!Buffer.isBuffer(buf) || buf.length < 5) {
     return null;
 }
 
+// 過濾 HMI 資料 (開頭是 0xEE)
+if (buf[0] === 0xEE) {
+    debugLog('modbus', "略過 HMI 資料 (0xEE 開頭)");
+    return null;
+}
+
 if (!verifyCRC(buf)) {
     debugLog('modbus', "CRC 驗證失敗");
+    debugLog('modbus', `資料: ${buf.toString('hex')}`);
     return null;
 }
 
@@ -194,7 +201,73 @@ else if (funcCode === 0x05) {
     }
 }
 
-// ===== 0x03 Read Holding Registers (查詢回應) =====
+// ===== HVAC 回應處理 (S200 空調模組，支援動態模組 ID 0-255) =====
+// 格式: [Module_ID] [0x03] [ByteCount] [Power Hi] [Power Lo] [Mode Hi] [Mode Lo] [Fan Hi] [Fan Lo] [Temp Hi] [Temp Lo] [CurrTemp Hi] [CurrTemp Lo] [0x00] [HVAC_ID*8] [CRC Lo] [CRC Hi]
+// ⚠️ 必須在燈光查詢之前檢查，因為都是 0x03 功能碼
+else if (funcCode === 0x03 && buf.length === 17) {
+    // HVAC 回應特徵: 功能碼 0x03, 長度 17 bytes
+    debugLog('modbus', `=== HVAC 回應 (模組 ID: ${moduleId}) ===`);
+
+    const len = buf[2];
+    const power_state = buf.readUInt16BE(3);
+    const mode_state = buf.readUInt16BE(5);
+    const fan_mode_state = buf.readUInt16BE(7);
+    const temperature_state = buf.readUInt16BE(9);
+    const current_temperature_state = buf.readUInt16BE(11);
+    const hvac_id = buf.readUInt8(14) / 8;
+
+    debugLog('modbus', `模組 ID: ${moduleId}, HVAC ID: ${hvac_id}`);
+    debugLog('modbus', `電源: ${power_state}, 模式: ${mode_state}, 風速: ${fan_mode_state}`);
+    debugLog('modbus', `設定溫度: ${temperature_state}°C, 當前溫度: ${current_temperature_state}°C`);
+
+    // 模式映射
+    const modeMap = {
+        0: "cool",
+        1: "heat",
+        2: "dry",
+        3: "fan_only",
+        4: "off"
+    };
+
+    const fanModeMap = {
+        0: "auto",
+        1: "low",
+        2: "medium",
+        3: "high"
+    };
+
+    // 當 power_state 為 0 時，將 mode_state 設為 "off"
+    const mode_state_str = (power_state === 0) ? "off" : modeMap[mode_state];
+    const fan_mode_state_str = fanModeMap[fan_mode_state];
+
+    debugLog('modbus', `模式字串: ${mode_state_str}, 風速字串: ${fan_mode_state_str}`);
+
+    // 發布 MQTT 狀態（使用動態模組 ID）
+    const baseTopic = `homeassistant/hvac/${moduleId}/${hvac_id}`;
+
+    mqttMessages.push({ topic: `${baseTopic}/mode/state`, payload: mode_state_str });
+    mqttMessages.push({ topic: `${baseTopic}/fan_mode/state`, payload: fan_mode_state_str });
+    mqttMessages.push({ topic: `${baseTopic}/temperature/state`, payload: temperature_state });
+    mqttMessages.push({ topic: `${baseTopic}/current_temperature`, payload: current_temperature_state });
+
+    // 更新快取（使用動態模組 ID）
+    flow.set(`hvac_${moduleId}_${hvac_id}_mode`, mode_state_str);
+    flow.set(`hvac_${moduleId}_${hvac_id}_fan_mode`, fan_mode_state_str);
+    flow.set(`hvac_${moduleId}_${hvac_id}_temperature`, temperature_state);
+    flow.set(`hvac_${moduleId}_${hvac_id}_current_temperature`, current_temperature_state);
+
+    debugLog('mqtt', `發布 HVAC 狀態: ${baseTopic}`);
+    debugLog('mqtt', `  模式: ${mode_state_str}, 風速: ${fan_mode_state_str}`);
+    debugLog('mqtt', `  設定溫度: ${temperature_state}°C, 當前溫度: ${current_temperature_state}°C`);
+
+    node.status({
+        fill: "orange",
+        shape: "dot",
+        text: `HVAC ${moduleId}-${hvac_id}: ${mode_state_str} ${temperature_state}°C (${current_temperature_state}°C)`
+    });
+}
+
+    // ===== 0x03 Read Holding Registers (燈光查詢回應) =====
 else if (funcCode === 0x03) {
     const byteCount = buf[2];  // 回傳的 byte 數量
     
@@ -298,6 +371,71 @@ else if (funcCode === 0x01) {
         fill: "cyan",
         shape: "ring",
         text: `Query: Relay ${moduleId} (1-4)`
+    });
+}
+
+// ===== 未知的功能碼 =====
+else {
+    debugLog('modbus', `=== 未處理的回應 ===`);
+    debugLog('modbus', `功能碼: 0x${funcCode.toString(16).padStart(2, '0')}, 長度: ${buf.length}`);
+    debugLog('modbus', `原始資料: ${buf.toString('hex')}`);
+
+    const len = buf[2];
+    const power_state = buf.readUInt16BE(3);
+    const mode_state = buf.readUInt16BE(5);
+    const fan_mode_state = buf.readUInt16BE(7);
+    const temperature_state = buf.readUInt16BE(9);
+    const current_temperature_state = buf.readUInt16BE(11);
+    const hvac_id = buf.readUInt8(14) / 8;
+
+    debugLog('modbus', `模組 ID: ${moduleId}, HVAC ID: ${hvac_id}`);
+    debugLog('modbus', `電源: ${power_state}, 模式: ${mode_state}, 風速: ${fan_mode_state}`);
+    debugLog('modbus', `設定溫度: ${temperature_state}°C, 當前溫度: ${current_temperature_state}°C`);
+
+    // 模式映射
+    const modeMap = {
+        0: "cool",
+        1: "heat",
+        2: "dry",
+        3: "fan_only",
+        4: "off"
+    };
+
+    const fanModeMap = {
+        0: "auto",
+        1: "low",
+        2: "medium",
+        3: "high"
+    };
+
+    // 當 power_state 為 0 時，將 mode_state 設為 "off"
+    const mode_state_str = (power_state === 0) ? "off" : modeMap[mode_state];
+    const fan_mode_state_str = fanModeMap[fan_mode_state];
+
+    debugLog('modbus', `模式字串: ${mode_state_str}, 風速字串: ${fan_mode_state_str}`);
+
+    // 發布 MQTT 狀態（使用動態模組 ID）
+    const baseTopic = `homeassistant / hvac / ${moduleId} / ${hvac_id}`;
+
+    mqttMessages.push({ topic: `${baseTopic} / mode / state`, payload: mode_state_str });
+    mqttMessages.push({ topic: `${baseTopic} / fan_mode / state`, payload: fan_mode_state_str });
+    mqttMessages.push({ topic: `${baseTopic} / temperature / state`, payload: temperature_state });
+    mqttMessages.push({ topic: `${baseTopic} / current_temperature`, payload: current_temperature_state });
+
+    // 更新快取（使用動態模組 ID）
+    flow.set(`hvac_${moduleId}_${hvac_id}_mode`, mode_state_str);
+    flow.set(`hvac_${moduleId}_${hvac_id}_fan_mode`, fan_mode_state_str);
+    flow.set(`hvac_${moduleId}_${hvac_id}_temperature`, temperature_state);
+    flow.set(`hvac_${moduleId}_${hvac_id}_current_temperature`, current_temperature_state);
+
+    debugLog('mqtt', `發布 HVAC 狀態: ${baseTopic}`);
+    debugLog('mqtt', `  模式: ${mode_state_str}, 風速: ${fan_mode_state_str}`);
+    debugLog('mqtt', `  設定溫度: ${temperature_state}°C, 當前溫度: ${current_temperature_state}°C`);
+
+    node.status({
+        fill: "orange",
+        shape: "dot",
+        text: `HVAC ${moduleId} - ${hvac_id}: ${mode_state_str} ${temperature_state}°C(${current_temperature_state}°C)`
     });
 }
 
