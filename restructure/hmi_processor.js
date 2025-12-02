@@ -48,7 +48,7 @@ const HMI_pattern = [
             return [{ topic: config.topic, payload: "query" }];
         }
     },
-    // 場景控制（含測試按鈕）- 狀態同步模式
+    // 場景控制（含測試按鈕）- 觸發輪詢查詢模式
     {
         name: "scene_unified",
         pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
@@ -56,7 +56,12 @@ const HMI_pattern = [
             const operation = input[4];
             const sceneId = input[5];
 
-            // 記憶指令處理
+            debugLog('hmi', `HMI場景按鈕: 場景0x${sceneId.toString(16).padStart(2,'0').toUpperCase()} 操作0x${operation.toString(16).padStart(2,'0').toUpperCase()} → 觸發輪詢`);
+            
+            // 所有場景按鈕都觸發輪詢查詢
+            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
+
+            // 記憶指令處理（已停用）
             if (operation >= 0x81 && operation <= 0x88) {
                 const MEMORY_TO_TEST_MAP = {
                     0x81: { sceneId: "0x02", operation: "0x01" },
@@ -138,7 +143,7 @@ const HMI_pattern = [
                 }];
             }
 
-            // 測試按鈕處理（test_buttons.md 8組）- 狀態同步模式
+            /* 測試按鈕處理（已停用，改為觸發輪詢）
             const TEST_BUTTONS = [
                 { op: 0x01, id: 0x05 }, // H40二樓 ON
                 { op: 0x02, id: 0x05 }, // H40二樓 OFF
@@ -161,16 +166,17 @@ const HMI_pattern = [
                 }
             }
 
-            // 一般場景控制 - 狀態同步模式
+            // 一般場景控制 - 狀態同步模式（已停用）
             const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;
             const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
             return [{
                 topic: `homeassistant/scene/${sceneKey}/${opKey}/state`,
                 payload: "ON"
             }];
+            */
         }
     },
-    // 燈光控制 - 狀態同步模式（HMI 直接控制設備，這裡只更新 HA 狀態）
+    // 燈光控制 - 觸發輪詢查詢模式
     {
         name: "light_control_unified",
         pattern: [0xEE, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00, null, null, 0xFF, 0xFC, 0xFF, 0xFF],
@@ -183,7 +189,13 @@ const HMI_pattern = [
 
             let value = Math.round((raw / 1000) * 100);
             value = value < 0 ? 0 : value > 100 ? 100 : value;
-            let state = value > 0 ? "ON" : "OFF";
+
+            debugLog('hmi', `HMI燈光控制(舊格式): 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} 數值=${value}% → 觸發輪詢`);
+            
+            // 觸發輪詢查詢
+            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
+
+            /* 已停用狀態同步
 
             const LIGHT_MAP = {
                 "0x1E-0x0B": { topic: "homeassistant/light/scene/single/11-1--11-2", type: "brightness" },
@@ -216,6 +228,7 @@ const HMI_pattern = [
                 ];
             }
             return null;
+            */
         }
     },
     // 雙色溫燈控制 - 新格式 0x11 帶數值(狀態同步) ⚠️ 必須放在 single_light_control 之前!
@@ -272,44 +285,47 @@ const HMI_pattern = [
             const valueLow = input[13];
             const raw = (valueHigh << 8) + valueLow;
 
-            // 映射表: 單燈 + scene
+            // 映射表: 觸發查詢模式 (因為 HMI 直接控制設備,同一指令可能對應多個燈光)
             const SINGLE_MAP = {
-                // Scene 0x1E - 走廊區域
+                // Scene 0x1E - 走廊區域 + 二樓區域 (會衝突,需要查詢多個設備)
                 "0x1E-0x0B": { 
-                    topic: "homeassistant/light/single/11/1", 
-                    sceneTopic: "homeassistant/light/scene/single/11-1--11-2",
-                    name: "走廊間照" 
+                    topic: "homeassistant/light/single/11/1",
+                    name: "走廊間照+客廳後",
+                    queryTopics: [
+                        "homeassistant/query/single/11/1",
+                        "homeassistant/query/single/15/2"
+                    ]
                 },
                 "0x1E-0x0D": { 
-                    topic: "homeassistant/light/single/12/1", 
-                    sceneTopic: "homeassistant/light/scene/single/12-1",
-                    name: "泡茶區" 
+                    topic: "homeassistant/light/single/12/1",
+                    name: "泡茶區",
+                    queryTopics: ["homeassistant/query/single/12/1"]
                 },
                 "0x1E-0x0F": { 
-                    topic: "homeassistant/light/single/12/2", 
-                    sceneTopic: "homeassistant/light/scene/single/12-2",
-                    name: "走道崁燈" 
+                    topic: "homeassistant/light/single/12/2",
+                    name: "走道崁燈",
+                    queryTopics: ["homeassistant/query/single/12/2"]
                 },
                 "0x1E-0x11": { 
-                    topic: "homeassistant/light/single/12/3", 
-                    sceneTopic: "homeassistant/light/scene/single/12-3--12-4",
-                    name: "展示櫃" 
+                    topic: "homeassistant/light/single/12/3",
+                    name: "展示櫃",
+                    queryTopics: ["homeassistant/query/single/12/3"]
                 },
                 // Scene 0x20 - 會議室區域
                 "0x20-0x0B": { 
-                    topic: "homeassistant/light/single/13/1", 
-                    sceneTopic: "homeassistant/light/scene/single/13-1",
-                    name: "會議間照" 
+                    topic: "homeassistant/light/single/13/1",
+                    name: "會議間照",
+                    queryTopics: ["homeassistant/query/single/13/1"]
                 },
                 "0x20-0x0D": { 
-                    topic: "homeassistant/light/single/13/2", 
-                    sceneTopic: "homeassistant/light/scene/single/13-2",
-                    name: "冷氣間照" 
+                    topic: "homeassistant/light/single/13/2",
+                    name: "冷氣間照",
+                    queryTopics: ["homeassistant/query/single/13/2"]
                 },
                 "0x20-0x0F": { 
-                    topic: "homeassistant/light/single/13/3", 
-                    sceneTopic: "homeassistant/light/scene/single/13-3",
-                    name: "會議崁燈" 
+                    topic: "homeassistant/light/single/13/3",
+                    name: "會議崁燈",
+                    queryTopics: ["homeassistant/query/single/13/3"]
                 }
             };
 
@@ -323,25 +339,27 @@ const HMI_pattern = [
             const brightness = Math.round((raw / 1000) * 100);
             const state = brightness > 0 ? "ON" : "OFF";
             
-            debugLog('hmi', `HMI單色燈亮度: ${config.name} ${config.topic} 亮度=${brightness}%`);
+            debugLog('hmi', `HMI單色燈調整: ${config.name} → 觸發查詢`);
             
-            const commands = [
-                { topic: `${config.topic}/state`, payload: state },
-                { topic: `${config.topic}/brightness`, payload: brightness }
-            ];
+            // HMI 直接控制設備,這裡發送 query 觸發狀態查詢
+            const commands = [];
             
-            // 同步 scene 狀態
-            if (config.sceneTopic) {
-                commands.push(
-                    { topic: `${config.sceneTopic}/state`, payload: state },
-                    { topic: `${config.sceneTopic}/brightness`, payload: brightness }
-                );
+            // 查詢所有可能受影響的燈光
+            if (config.queryTopics && Array.isArray(config.queryTopics)) {
+                for (const queryTopic of config.queryTopics) {
+                    commands.push({ topic: queryTopic, payload: "query" });
+                }
+            } else {
+                // 如果沒有指定 queryTopics,則查詢單個設備
+                const parts = config.topic.split("/");
+                const queryTopic = `homeassistant/query/${parts[2]}/${parts[3]}/${parts[4]}`;
+                commands.push({ topic: queryTopic, payload: "query" });
             }
             
             return commands;
         }
     },
-    // 單色燈控制 - 新格式 0x11 控制指令(觸發查詢)
+    // 單色燈控制 - 新格式 0x11 控制指令(觸發輪詢)
     {
         name: "single_light_control",
         pattern: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, null, 0x00, null, 0x13, 0x00, 0x00],
@@ -349,25 +367,13 @@ const HMI_pattern = [
             const sceneId = input[6];      // byte[6]: 場景ID (例如 0x1E)
             const functionId = input[8];   // byte[8]: 功能ID (例如 0x0B)
 
-            const CORRIDOR_MAP = {
-                "0x1E-0x0B": "homeassistant/light/scene/single/11-1--11-2",
-                "0x1E-0x0D": "homeassistant/light/scene/single/12-1",
-                "0x1E-0x0F": "homeassistant/light/scene/single/12-2",
-                "0x1E-0x11": "homeassistant/light/scene/single/12-3--12-4",
-                "0x1F-0x0B": "homeassistant/light/dual/14/a",  // 會議室 A 亮度
-                "0x1F-0x0F": "homeassistant/light/dual/14/b"   // 會議室 B 亮度
-            };
-
-            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;
-            const baseTopic = CORRIDOR_MAP[key];
-
-            if (!baseTopic) return null;
-
-            debugLog('hmi', `HMI單色燈狀態: 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} → 同步狀態`);
-            return [{ topic: `${baseTopic}/state`, payload: "ON" }];
+            debugLog('hmi', `HMI單色燈控制: 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} → 觸發輪詢`);
+            
+            // 觸發輪詢查詢
+            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
         }
     },
-    // 單色燈設定值 - 新格式 0x12 ASCII 字串(觸發查詢)
+    // 單色燈設定值 - 新格式 0x12 ASCII 字串(觸發輪詢)
     {
         name: "single_light_value",
         pattern: [0xEE, 0x00, 0x65, 0xB1, 0x12, 0x00, null, 0x00, null, 0x00, null],
@@ -376,37 +382,20 @@ const HMI_pattern = [
             const functionId = input[8];   // byte[8]: 功能ID (例如 0x15)
             const length = input[10];      // byte[10]: ASCII 字串長度
 
-            const CORRIDOR_MAP = {
-                "0x1E-0x15": "homeassistant/light/scene/single/11-1--11-2",
-                "0x1E-0x17": "homeassistant/light/scene/single/12-1",
-                "0x1E-0x19": "homeassistant/light/scene/single/12-2",
-                "0x1E-0x1B": "homeassistant/light/scene/single/12-3--12-4",
-                "0x1F-0x1D": "homeassistant/light/dual/14/a",  // 會議室 A 亮度值
-                "0x1F-0x21": "homeassistant/light/dual/14/b"   // 會議室 B 亮度值
-            };
-
-            const key = `0x${sceneId.toString(16).toUpperCase()}-0x${functionId.toString(16).toUpperCase()}`;
-            const baseTopic = CORRIDOR_MAP[key];
-
-            if (!baseTopic) return null;
-
             // 提取 ASCII 數值（亮度百分比）
+            let brightness = null;
             if (length > 0 && input.length >= 11 + length) {
                 let valueStr = '';
                 for (let i = 0; i < length; i++) {
                     valueStr += String.fromCharCode(input[11 + i]);
                 }
-                const brightness = parseInt(valueStr);
-                if (!isNaN(brightness)) {
-                    debugLog('hmi', `HMI單色燈亮度: 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} 亮度=${brightness}%`);
-                    return [
-                        { topic: `${baseTopic}/state`, payload: brightness > 0 ? "ON" : "OFF" },
-                        { topic: `${baseTopic}/brightness`, payload: brightness }
-                    ];
-                }
+                brightness = parseInt(valueStr);
             }
 
-            return null;
+            debugLog('hmi', `HMI單色燈亮度(ASCII): 場景0x${sceneId.toString(16).toUpperCase()} 功能0x${functionId.toString(16).toUpperCase()} 數值=${brightness}% → 觸發輪詢`);
+            
+            // 觸發輪詢查詢
+            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
         }
     },
     // 空調控制（狀態同步模式：HMI 直接控制設備，這裡只更新 HA 狀態）
