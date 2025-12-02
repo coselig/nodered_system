@@ -274,6 +274,28 @@ const HMI_pattern = [
 
             // 映射表: 單燈 + scene
             const SINGLE_MAP = {
+                // Scene 0x1E - 走廊區域
+                "0x1E-0x0B": { 
+                    topic: "homeassistant/light/single/11/1", 
+                    sceneTopic: "homeassistant/light/scene/single/11-1--11-2",
+                    name: "走廊間照" 
+                },
+                "0x1E-0x0D": { 
+                    topic: "homeassistant/light/single/12/1", 
+                    sceneTopic: "homeassistant/light/scene/single/12-1",
+                    name: "泡茶區" 
+                },
+                "0x1E-0x0F": { 
+                    topic: "homeassistant/light/single/12/2", 
+                    sceneTopic: "homeassistant/light/scene/single/12-2",
+                    name: "走道崁燈" 
+                },
+                "0x1E-0x11": { 
+                    topic: "homeassistant/light/single/12/3", 
+                    sceneTopic: "homeassistant/light/scene/single/12-3--12-4",
+                    name: "展示櫃" 
+                },
+                // Scene 0x20 - 會議室區域
                 "0x20-0x0B": { 
                     topic: "homeassistant/light/single/13/1", 
                     sceneTopic: "homeassistant/light/scene/single/13-1",
