@@ -290,18 +290,17 @@ else if (funcCode === 0x03) {
         
         debugLog('modbus', `第一個寄存器值: 0x${reg1Value.toString(16).padStart(4, '0')} (亮度: ${brightness})`);
         
-        // 從 msg.payload 中取得原始查詢的寄存器地址（需要從發送時儲存）
-        // 或者我們可以根據模組ID和通道來推斷
-        // 這裡我們假設查詢 single light channel 1 (0x082A)
-        // 更好的做法是在發送查詢時將寄存器地址附加到 msg 中
+        // 從 flow context 取得當前查詢資訊（因為 TCP Request 會覆蓋 msg 屬性）
+        const currentQuery = flow.get('modbus_current_query') || {};
+        const queryInfo = msg.queryInfo || currentQuery.queryInfo || {};
         
-        // 從 msg 中取得查詢時的設備資訊（由 Full Processor 傳遞）
-        const queryInfo = msg.queryInfo || {};
-        const type = queryInfo.type || "single";
-        const channel = queryInfo.channel || "1";
+        // 優先使用 flow context 的資訊，因為回應的 moduleId 是可靠的
+        // 但 channel 需要從 queryInfo 或 flow context 取得
+        const type = queryInfo.type || currentQuery.subType || "single";
+        const channel = queryInfo.channel || currentQuery.channel || "1";
         const baseTopic = `homeassistant/light/${type}/${moduleId}/${channel}`;
         
-        debugLog('modbus', `查詢結果: ${type} 燈光, 通道 ${channel}`);
+        debugLog('modbus', `查詢結果: ${type} 燈光, 模組 ${moduleId}, 通道 ${channel}`);
         debugLog('modbus', `狀態: ${state}, 亮度: ${brightness}`);
         
         // 發布查詢到的狀態

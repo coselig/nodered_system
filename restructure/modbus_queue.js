@@ -20,15 +20,16 @@
 // 設定
 const TIMEOUT_MS = 500;  // 等待 feedback 超時時間 (毫秒)
 
-// Debug 控制
-const debugConfig = global.get('debug_config') || {
-    topic: true,
-    cache: true,
-    modbus: true,
-    mqtt: true,
-    scene: true,
-    query: true,
-    queue: true
+// Debug 控制 - 強制啟用 queue debug
+const globalDebug = global.get('debug_config') || {};
+const debugConfig = {
+    topic: globalDebug.topic !== false,
+    cache: globalDebug.cache !== false,
+    modbus: globalDebug.modbus !== false,
+    mqtt: globalDebug.mqtt !== false,
+    scene: globalDebug.scene !== false,
+    query: globalDebug.query !== false,
+    queue: true  // Queue debug 強制開啟
 };
 
 function debugLog(category, message) {
@@ -44,16 +45,18 @@ let currentCmd = flow.get('modbus_queue_current') || null;
 let lastSendTime = flow.get('modbus_queue_last_send') || 0;
 
 // 判斷輸入類型
-const action = msg.topic || "enqueue";
+const action = msg.topic || "";
 
 // ===== ENQUEUE: 將指令加入佇列 =====
-if (action === "modbus/queue/enqueue" || !msg.topic) {
+// 如果 topic 不是 queue 控制指令，就當作是 enqueue
+const isQueueCommand = action.startsWith("modbus/queue/");
+if (!isQueueCommand) {
     // 支援單個或多個指令
-    const commands = Array.isArray(msg.payload) ? msg.payload : [msg];
+    const commands = Array.isArray(msg) ? msg : [msg];
     
     for (const cmd of commands) {
-        // 確保有 payload
-        if (cmd.payload) {
+        // 確保有 payload（Buffer）
+        if (cmd.payload && Buffer.isBuffer(cmd.payload)) {
             queue.push({
                 payload: cmd.payload,
                 subType: cmd.subType,
@@ -66,11 +69,12 @@ if (action === "modbus/queue/enqueue" || !msg.topic) {
                 queryInfo: cmd.queryInfo,
                 timestamp: Date.now()
             });
+            debugLog('queue', `入隊: Module ${cmd.moduleId} Channel ${cmd.channel} - ${cmd.payload.toString('hex')}`);
         }
     }
     
     flow.set('modbus_queue', queue);
-    debugLog('queue', `入隊: ${commands.length} 個指令，佇列長度: ${queue.length}`);
+    debugLog('queue', `佇列長度: ${queue.length}`);
     
     // 如果目前沒有在處理，開始處理
     if (!isProcessing) {
@@ -98,6 +102,11 @@ if (action === "modbus/queue/timeout") {
     const now = Date.now();
     const elapsed = now - lastSendTime;
     
+    // 顯示超時檢查狀態
+    if (isProcessing) {
+        debugLog('queue', `⏱️ 超時檢查: 已等待 ${elapsed}ms / ${TIMEOUT_MS}ms，佇列剩餘: ${queue.length}`);
+    }
+
     if (isProcessing && elapsed >= TIMEOUT_MS) {
         debugLog('queue', `⚠️ 超時 ${elapsed}ms，強制發送下一個`);
         flow.set('modbus_queue_current', null);
@@ -151,11 +160,27 @@ function sendNext() {
     flow.set('modbus_queue_current', cmd);
     flow.set('modbus_queue_last_send', Date.now());
     
-    debugLog('queue', `發送指令: ${cmd.payload.toString('hex')} (剩餘 ${queue.length})`);
+    debugLog('queue', `發送: Module ${cmd.moduleId} Ch ${cmd.channel} - ${cmd.payload.toString('hex')} (剩餘 ${queue.length})`);
     updateStatus();
     
+    // 儲存當前查詢資訊到 flow context，讓 Feedback 可以讀取
+    // 因為 TCP Request 會覆蓋 msg 屬性
+    flow.set('modbus_current_query', {
+        queryInfo: cmd.queryInfo,
+        moduleId: cmd.moduleId,
+        channel: cmd.channel,
+        subType: cmd.subType,
+        timestamp: Date.now()
+    });
+
     // 發送到 Modbus
-    node.send([{ payload: cmd.payload }]);
+    node.send([{
+        payload: cmd.payload,
+        queryInfo: cmd.queryInfo,
+        moduleId: cmd.moduleId,
+        channel: cmd.channel,
+        subType: cmd.subType
+    }]);
 }
 
 // ===== 更新節點狀態 =====
