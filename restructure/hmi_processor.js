@@ -102,6 +102,25 @@ const HMI_pattern = [
                         { topic: "homeassistant/query/single/19/1", payload: "query" },  // 2F壁燈
                         { topic: "homeassistant/query/single/19/2", payload: "query" }   // 2F地燈
                     ]
+                },
+                0xFF: {
+                    name: "H70全開",
+                    queries: [
+                        // 會議室區域 (13-x)
+                        { topic: "homeassistant/query/single/13/1", payload: "query" },  // 會議間照 60%
+                        { topic: "homeassistant/query/single/13/2", payload: "query" },  // 冷氣間照 60%
+                        { topic: "homeassistant/query/single/13/3", payload: "query" },  // 會議崁燈 60%
+                        // 雙色溫燈 (14-x)
+                        { topic: "homeassistant/query/dual/14/1", payload: "query" },    // 軌道亮度 50%
+                        { topic: "homeassistant/query/dual/14/2", payload: "query" },    // 軌道色溫 50%
+                        { topic: "homeassistant/query/dual/14/3", payload: "query" },    // 會議桌亮度 50%
+                        { topic: "homeassistant/query/dual/14/4", payload: "query" },    // 會議桌色溫 50%
+                        // 公共區域 (11-x, 12-x)
+                        { topic: "homeassistant/query/single/11/1", payload: "query" },  // 走廊間照 50%
+                        { topic: "homeassistant/query/single/12/1", payload: "query" },  // 泡茶區 50%
+                        { topic: "homeassistant/query/single/12/2", payload: "query" },  // 走道崁燈 50%
+                        { topic: "homeassistant/query/single/12/3", payload: "query" }   // 展示櫃 50%
+                    ]
                 }
             };
 
