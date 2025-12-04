@@ -4,7 +4,14 @@
  * Node ID: 50313094f488b340
  * Node Type: function
  * 
- * 此檔案從 test_full_integrated.json 自動提取
+ * 輸出：
+ *   Output 1: Modbus 指令 → 連接到 modbus_queue.js（入隊）
+ *   Output 2: MQTT 狀態   → 連接到 MQTT out
+ * 
+ * 流程：
+ *   MQTT In → full_processor → modbus_queue → Serial Out
+ *                                    ↑
+ *   Serial In → feedback_processor ──┘ (dequeue)
  */
 
 // 完整版處理器：支援 Single/Dual/Relay 燈光、Cover、Scene

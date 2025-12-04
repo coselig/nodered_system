@@ -38,23 +38,29 @@ function verifyCRC(buf) {
     return lo === buf[buf.length - 2] && hi === buf[buf.length - 1];
 }
 
+// 產生 dequeue 訊息的輔助函數
+function makeDequeueMsg() {
+    return { topic: "modbus/queue/dequeue", payload: "next" };
+}
+
 const buf = msg.payload;
 
 if (!Buffer.isBuffer(buf) || buf.length < 5) {
     debugLog('modbus', "回應格式錯誤");
-    return null;
+    return null;  // 不是有效的 Modbus 資料，不觸發 dequeue
 }
 
 // 過濾 HMI 資料 (開頭是 0xEE)
 if (buf[0] === 0xEE) {
     debugLog('modbus', "略過 HMI 資料 (0xEE 開頭)");
-    return null;
+    return null;  // HMI 資料，不觸發 dequeue
 }
 
 if (!verifyCRC(buf)) {
-    debugLog('modbus', "CRC 驗證失敗");
+    debugLog('modbus', "CRC 驗證失敗，觸發下一個指令");
     debugLog('modbus', `資料: ${buf.toString('hex')}`);
-    return null;
+    // CRC 失敗仍觸發 dequeue，避免佇列卡住
+    return [null, null, makeDequeueMsg()];
 }
 
 const moduleId = buf[0];
@@ -445,5 +451,8 @@ msg.feedback = {
     raw: buf.toString('hex')
 };
 
-// 返回: [Feedback 資訊, MQTT 狀態]
-return [msg, mqttMessages];
+// 觸發 Modbus Queue 發送下一個指令
+const dequeueMsg = { topic: "modbus/queue/dequeue", payload: "next" };
+
+// 返回: [Feedback 資訊, MQTT 狀態, Queue Dequeue]
+return [msg, mqttMessages, dequeueMsg];

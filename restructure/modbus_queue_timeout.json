@@ -1,0 +1,26 @@
+{
+    "_comment": "Modbus Queue 超時檢查 - 每 500ms 觸發一次",
+    "id": "modbus_queue_timeout_inject",
+    "type": "inject",
+    "name": "Queue Timeout Check",
+    "props": [
+        {
+            "p": "topic",
+            "vt": "str",
+            "v": "modbus/queue/timeout"
+        },
+        {
+            "p": "payload",
+            "vt": "str", 
+            "v": "check"
+        }
+    ],
+    "repeat": "0.5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "modbus/queue/timeout",
+    "payload": "check",
+    "payloadType": "str",
+    "wires": [["modbus_queue"]]
+}

@@ -48,7 +48,7 @@ const HMI_pattern = [
             return [{ topic: config.topic, payload: "query" }];
         }
     },
-    // 場景控制（含測試按鈕）- 觸發輪詢查詢模式
+    // 場景控制（含測試按鈕）- 主動發送查詢序列
     {
         name: "scene_unified",
         pattern: [0xfe, 0x06, 0x08, 0x20, null, null, null, null],
@@ -56,124 +56,65 @@ const HMI_pattern = [
             const operation = input[4];
             const sceneId = input[5];
 
-            debugLog('hmi', `HMI場景按鈕: 場景0x${sceneId.toString(16).padStart(2,'0').toUpperCase()} 操作0x${operation.toString(16).padStart(2,'0').toUpperCase()} → 觸發輪詢`);
-            
-            // 所有場景按鈕都觸發輪詢查詢
-            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
-
-            // 記憶指令處理（已停用）
-            if (operation >= 0x81 && operation <= 0x88) {
-                const MEMORY_TO_TEST_MAP = {
-                    0x81: { sceneId: "0x02", operation: "0x01" },
-                    0x82: { sceneId: "0x02", operation: "0x02" },
-                    0x83: { sceneId: "0x03", operation: "0x01" },
-                    0x84: { sceneId: "0x03", operation: "0x02" },
-                    0x85: { sceneId: "0x04", operation: "0x01" },
-                    0x86: { sceneId: "0x04", operation: "0x02" },
-                    0x87: { sceneId: "0x05", operation: "0x01" },
-                    0x88: { sceneId: "0x05", operation: "0x02" }
-                };
-
-                const SCENE_MEMORY_MAP = {
-                    "0x02": {
-                        name: "會議室", devices: [
-                            "homeassistant/light/single/13/1",
-                            "homeassistant/light/single/13/2",
-                            "homeassistant/light/single/13/3",
-                            "homeassistant/light/dual/14/a",
-                            "homeassistant/light/dual/14/b"
-                        ]
-                    },
-                    "0x03": {
-                        name: "公共區", devices: [
-                            "homeassistant/light/single/11/1",
-                            "homeassistant/light/single/11/2",
-                            "homeassistant/light/single/12/1",
-                            "homeassistant/light/single/12/2",
-                            "homeassistant/light/single/12/3",
-                            "homeassistant/light/single/12/4"
-                        ]
-                    },
-                    "0x04": {
-                        name: "戶外", devices: [
-                            "homeassistant/light/single/18/1",
-                            "homeassistant/light/single/18/2",
-                            "homeassistant/light/single/19/1",
-                            "homeassistant/light/single/19/2"
-                        ]
-                    },
-                    "0x05": {
-                        name: "H40二樓", devices: [
-                            "homeassistant/light/single/15/1",
-                            "homeassistant/light/single/15/2",
-                            "homeassistant/light/single/16/1",
-                            "homeassistant/light/single/16/2",
-                            "homeassistant/light/single/17/1",
-                            "homeassistant/light/single/17/2",
-                            "homeassistant/light/single/18/1",
-                            "homeassistant/light/single/18/2",
-                            "homeassistant/light/single/19/1",
-                            "homeassistant/light/single/19/2"
-                        ]
-                    }
-                };
-
-                const mapping = MEMORY_TO_TEST_MAP[operation];
-                if (!mapping) return null;
-
-                const targetSceneId = mapping.sceneId;
-                const targetOperation = mapping.operation;
-                const sceneInfo = SCENE_MEMORY_MAP[targetSceneId];
-                if (!sceneInfo) return null;
-
-                const opNames = { "0x01": "ON", "0x02": "OFF" };
-                const opName = opNames[targetOperation] || targetOperation;
-                const memoryTopic = `homeassistant/memory/${targetSceneId}/${targetOperation}/save/state`;
-                const buttonNum = operation - 0x80;
-
-                debugLog('hmi', `HMI記憶按鈕${buttonNum} → ${sceneInfo.name}_${opName}`);
-
-                return [{
-                    topic: memoryTopic,
-                    payload: JSON.stringify({
-                        scene_name: `${sceneInfo.name}_${opName}`,
-                        devices: sceneInfo.devices,
-                        timestamp: new Date().toISOString()
-                    })
-                }];
-            }
-
-            /* 測試按鈕處理（已停用，改為觸發輪詢）
-            const TEST_BUTTONS = [
-                { op: 0x01, id: 0x05 }, // H40二樓 ON
-                { op: 0x02, id: 0x05 }, // H40二樓 OFF
-                { op: 0x01, id: 0x02 }, // 會議室 ON
-                { op: 0x02, id: 0x02 }, // 會議室 OFF
-                { op: 0x01, id: 0x03 }, // 公共區 ON
-                { op: 0x02, id: 0x03 }, // 公共區 OFF
-                { op: 0x01, id: 0x04 }, // 戶外燈 ON
-                { op: 0x02, id: 0x04 }  // 戶外燈 OFF
-            ];
-            for (const btn of TEST_BUTTONS) {
-                if (operation === btn.op && sceneId === btn.id) {
-                    const sceneKey = `0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}`;
-                    const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
-                    debugLog('hmi', `HMI場景狀態: 場景${sceneKey} 操作${opKey}`);
-                    return [{
-                        topic: `homeassistant/scene/${sceneKey}/${opKey}/state`,
-                        payload: "ON"
-                    }];
+            // 場景對應的設備查詢列表
+            const SCENE_QUERY_MAP = {
+                0x02: {
+                    name: "會議室",
+                    queries: [
+                        { topic: "homeassistant/query/single/13/1", payload: "query" },  // 會議間照
+                        { topic: "homeassistant/query/single/13/2", payload: "query" },  // 冷氣間照
+                        { topic: "homeassistant/query/single/13/3", payload: "query" },  // 會議崁燈
+                        { topic: "homeassistant/query/dual/14/a", payload: "query" },    // 會議室雙色溫A
+                        { topic: "homeassistant/query/dual/14/b", payload: "query" }     // 會議室雙色溫B
+                    ]
+                },
+                0x03: {
+                    name: "公共區",
+                    queries: [
+                        { topic: "homeassistant/query/single/11/1", payload: "query" },  // 走廊間照
+                        { topic: "homeassistant/query/single/11/2", payload: "query" },  // 走廊間照
+                        { topic: "homeassistant/query/single/12/1", payload: "query" },  // 泡茶區
+                        { topic: "homeassistant/query/single/12/2", payload: "query" },  // 走道崁燈
+                        { topic: "homeassistant/query/single/12/3", payload: "query" },  // 展示櫃
+                        { topic: "homeassistant/query/single/12/4", payload: "query" }   // 展示櫃
+                    ]
+                },
+                0x04: {
+                    name: "戶外",
+                    queries: [
+                        { topic: "homeassistant/query/single/18/1", payload: "query" },  // 1F壁燈
+                        { topic: "homeassistant/query/single/18/2", payload: "query" },  // 1F地燈
+                        { topic: "homeassistant/query/single/19/1", payload: "query" },  // 2F壁燈
+                        { topic: "homeassistant/query/single/19/2", payload: "query" }   // 2F地燈
+                    ]
+                },
+                0x05: {
+                    name: "H40二樓",
+                    queries: [
+                        { topic: "homeassistant/query/single/15/1", payload: "query" },  // 客廳前
+                        { topic: "homeassistant/query/single/15/2", payload: "query" },  // 客廳後
+                        { topic: "homeassistant/query/single/16/1", payload: "query" },  // 走道間照
+                        { topic: "homeassistant/query/single/16/2", payload: "query" },  // 走道間照
+                        { topic: "homeassistant/query/single/17/1", payload: "query" },  // 廚房
+                        { topic: "homeassistant/query/single/17/2", payload: "query" },  // 廚房
+                        { topic: "homeassistant/query/single/18/1", payload: "query" },  // 1F壁燈
+                        { topic: "homeassistant/query/single/18/2", payload: "query" },  // 1F地燈
+                        { topic: "homeassistant/query/single/19/1", payload: "query" },  // 2F壁燈
+                        { topic: "homeassistant/query/single/19/2", payload: "query" }   // 2F地燈
+                    ]
                 }
+            };
+
+            const sceneConfig = SCENE_QUERY_MAP[sceneId];
+
+            if (sceneConfig) {
+                debugLog('hmi', `HMI場景按鈕: ${sceneConfig.name}(0x${sceneId.toString(16).padStart(2, '0').toUpperCase()}) 操作0x${operation.toString(16).padStart(2, '0').toUpperCase()} → 發送${sceneConfig.queries.length}個查詢`);
+                return sceneConfig.queries;
             }
 
-            // 一般場景控制 - 狀態同步模式（已停用）
-            const sceneKey = `0x${sceneId.toString(16).toUpperCase()}`;
-            const opKey = `0x${operation.toString(16).padStart(2, '0').toUpperCase()}`;
-            return [{
-                topic: `homeassistant/scene/${sceneKey}/${opKey}/state`,
-                payload: "ON"
-            }];
-            */
+            // 未知場景：fallback 到觸發全部輪詢
+            debugLog('hmi', `HMI場景按鈕: 未知場景0x${sceneId.toString(16).padStart(2, '0').toUpperCase()} 操作0x${operation.toString(16).padStart(2, '0').toUpperCase()} → 觸發全部輪詢`);
+            return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
         }
     },
     // 燈光控制 - 觸發輪詢查詢模式
