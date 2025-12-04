@@ -330,7 +330,7 @@ if (deviceType === "light") {
         } else {
             key = `${subType}_${moduleId}_${channel}_${attribute}`;
         }
-
+        
         // RGB 的 rgb 屬性使用字串，其他使用數值
         if (attribute === "rgb") {
             flow.set(key, msg.payload);  // 儲存為字串 "R,G,B"

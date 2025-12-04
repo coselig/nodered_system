@@ -50,7 +50,6 @@ const queryMessages = QUERY_DEVICES.map(device => ({
     topic: `homeassistant/query/${device.type}/${device.moduleId}/${device.channel}`,
     payload: "query"
 }));
-
 node.status({
     fill: "blue",
     shape: "ring",

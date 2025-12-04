@@ -1,12 +1,3 @@
-/**
- * Feedback 處理器 - 解析 Modbus 回應
- * 
- * Node ID: c543b1d15612a8c6
- * Node Type: function
- * 
- * 此檔案從 test_full_integrated.json 自動提取
- */
-
 // 完整 Feedback 處理器：解析 Modbus 回應並發布 MQTT 狀態
 
 // Debug 控制
@@ -217,28 +208,28 @@ else if (funcCode === 0x10) {
     const qtyHi = buf[4];
     const qtyLo = buf[5];
     const quantity = (qtyHi << 8) | qtyLo;
-
+    
     debugLog('modbus', `=== 解析 RGB 回應 (0x10) ===`);
     debugLog('modbus', `寄存器: 0x${register.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
-
+    
     // RGB 使用寄存器 0x0829 (通道 x), 0x082B (通道 y), 0x082D (通道 z)
     const RGB_REGISTER_MAP = {
         0x0829: "x",
         0x082B: "y",
         0x082D: "z"
     };
-
+    
     const channel = RGB_REGISTER_MAP[register];
     if (channel) {
         const baseTopic = `homeassistant/light/rgb/${moduleId}/${channel}`;
-
+        
         // 從 flow context 取得當前狀態
         const stateKey = `rgb_${moduleId}_${channel}_state`;
         const state = flow.get(stateKey) || "OFF";
-
+        
         debugLog('modbus', `RGB 模組 ${moduleId} 通道 ${channel}: 指令已確認`);
         debugLog('mqtt', `RGB 狀態確認: ${baseTopic}`);
-
+        
         node.status({
             fill: state === "ON" ? "magenta" : "grey",
             shape: "dot",

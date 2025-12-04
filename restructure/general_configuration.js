@@ -8,9 +8,8 @@ let lights = [
     // 盤A
     { id: "single_11_1", name: "走廊間照" },
     { id: "single_12_1", name: "泡茶區" },
-    { id: "single_12_2", name: "走道崁燈" },
+    { id: "single_12_2", name: "走道崁燈/地間照" },
     { id: "single_12_3", name: "展示櫃" },
-    { id: "single_12_4", name: "展示櫃" },
     { id: "single_13_1", name: "會議間照" },
     { id: "single_13_2", name: "冷氣間照" },
     { id: "single_13_3", name: "會議崁燈" },
@@ -19,21 +18,40 @@ let lights = [
     // 盤B
     { id: "single_15_1", name: "客廳前" },
     { id: "single_15_2", name: "客廳後" },
-    { id: "single_16_1", name: "走道間照" },
     { id: "single_16_2", name: "走道間照" },
     { id: "single_17_1", name: "廚房" },
-    { id: "single_17_2", name: "廚房" },
-    { id: "single_18_1", name: "1F壁燈" },
-    { id: "single_18_2", name: "1F地燈" },
+    { id: "single_18_1", name: "1F地燈" },
+    { id: "single_18_2", name: "1F壁燈" },
     { id: "single_19_1", name: "2F壁燈" },
     { id: "single_19_2", name: "2F地燈" },
     // RGB 燈光
-    { id: "rgb_11_x", name: "RGBh測試燈" },
+    { id: "rgb_2_x", name: "RGB燈-2" },
+    { id: "rgb_11_x", name: "RGB燈-11" },
 ];
 
 // 2. 情境設備
 let scenes = [
     // { id: "scene_single_11-1--11-2", name: "走廊間照" },
+    // { id: "scene_single_12-1", name: "泡茶區" },
+    // { id: "scene_single_12-2", name: "走道崁燈" },
+    // { id: "scene_single_12-3--12-4", name: "展示櫃" },
+    // { id: "scene_single_13-1", name: "會議間照" },
+    // { id: "scene_single_13-2", name: "冷氣間照" },
+    // { id: "scene_single_13-3", name: "會議崁燈" },
+    // { id: "scene_single_15-1", name: "客廳前" },
+    // { id: "scene_single_15-2", name: "客廳後" },
+    // { id: "scene_single_16-1--16-2", name: "走道間照" },
+    // { id: "scene_single_17-1--17-2", name: "廚房" },
+    // { id: "scene_single_18-1", name: "1F壁燈" },
+    // { id: "scene_single_18-2", name: "1F地燈" },
+    // { id: "scene_single_19-1", name: "2F壁燈" },
+    // { id: "scene_single_19-2", name: "2F地燈" },
+    // 場景燈光群組 (用於場景控制)
+    // { id: "scene_single_11-1--11-2--12-1--12-2--12-3--12-4", name: "公共區燈組" },
+    // { id: "scene_single_13-1--13-2--13-3", name: "會議室燈組" },
+    // { id: "scene_dual_14-a--14-b", name: "會議室雙色溫燈組" },
+    // { id: "scene_single_15-1--15-2--16-1--17-1--18-1--18-2--19-1--19-2", name: "二樓燈組" },
+    // { id: "scene_single_18-1--18-2--19-1--19-2", name: "戶外燈組" },
 ];
 
 // 3. 窗簾/捲簾設備

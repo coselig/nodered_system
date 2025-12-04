@@ -1,22 +1,3 @@
-/**
- * Modbus Queue - 佇列處理器（等待 feedback 再發送下一個）
- * 
- * Node ID: modbus_queue
- * Node Type: function
- * 
- * 使用方式：
- * 1. full_processor 輸出的 Modbus 指令 → 入隊（enqueue）
- * 2. feedback_processor 回應後 → 觸發發送下一個（dequeue）
- * 3. 定時器防止卡住 → 超時自動發送下一個
- * 
- * 輸入 Topic:
- * - modbus/queue/enqueue → 將指令加入佇列
- * - modbus/queue/dequeue → 收到 feedback，發送下一個
- * - modbus/queue/timeout → 超時，強制發送下一個
- * - modbus/queue/clear   → 清空佇列
- * - modbus/queue/status  → 查詢佇列狀態
- */
-
 // 設定
 const TIMEOUT_MS = 500;  // 等待 feedback 超時時間 (毫秒)
 
