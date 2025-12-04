@@ -320,7 +320,7 @@ if (deviceType === "scene") {
 if (deviceType === "light") {
     const baseTopic = `homeassistant/light/${subType}/${moduleId}/${channel}`;
 
-    // 處理 set/brightness 和 set/colortemp
+    // 處理 set/brightness 和 set/colortemp 和 set/rgb
     if (parts.length >= 7 && parts[5] === "set") {
         const attribute = parts[6];
         // Scene 的 key 格式不同：scene_single_12-3--12-4_brightness
@@ -330,14 +330,20 @@ if (deviceType === "light") {
         } else {
             key = `${subType}_${moduleId}_${channel}_${attribute}`;
         }
-        const val = Number(msg.payload);
 
-        if (!isNaN(val)) {
-            flow.set(key, val);
-            debugLog('cache', `儲存 ${key} = ${val}`);
+        // RGB 的 rgb 屬性使用字串，其他使用數值
+        if (attribute === "rgb") {
+            flow.set(key, msg.payload);  // 儲存為字串 "R,G,B"
+            debugLog('cache', `儲存 ${key} = ${msg.payload}`);
+        } else {
+            const val = Number(msg.payload);
+            if (!isNaN(val)) {
+                flow.set(key, val);
+                debugLog('cache', `儲存 ${key} = ${val}`);
+            }
         }
 
-        if (attribute === "brightness" || attribute === "colortemp") {
+        if (attribute === "brightness" || attribute === "colortemp" || attribute === "rgb") {
             // 對於 dual 燈光的色溫調整，只發送色溫指令，不觸發完整控制流程
             if (subType === "dual" && attribute === "colortemp") {
                 const regs = CHANNEL_REGISTER_MAP[channel];
@@ -487,6 +493,90 @@ if (deviceType === "light") {
             fill: state === "ON" ? "green" : "grey",
             shape: "dot",
             text: `${moduleId}-${channel}: ${state} ${brightness}% ${colortemp}K`
+        });
+    }
+
+    // ===== RGB =====
+    else if (subType === "rgb") {
+        // RGB 使用 0x10 (Write Multiple Registers) 寫入 2 個寄存器 (4 bytes: R, G, B, W)
+        const RGB_REGISTER_MAP = { "x": 0x0829, "y": 0x082B, "z": 0x082D };
+        const DEFAULT_RGB = "255,255,255";
+
+        const reg = RGB_REGISTER_MAP[channel];
+        if (!reg) {
+            debugLog('modbus', `找不到 RGB 通道 ${channel} 的寄存器`);
+            return null;
+        }
+
+        let state = (msg.payload === "ON" || msg.payload === true) ? "ON" : "OFF";
+        const stateKey = `${subType}_${moduleId}_${channel}_state`;
+        flow.set(stateKey, state);
+
+        // 取得亮度 (0-100)
+        let brightness = flow.get(`${subType}_${moduleId}_${channel}_brightness`);
+        if (typeof brightness !== "number") brightness = DEFAULT_BRIGHTNESS;
+        brightness = clamp(Math.round(brightness), 0, 100);
+
+        // 取得 RGB 值 (格式: "R,G,B")
+        let rgbString = flow.get(`${subType}_${moduleId}_${channel}_rgb`);
+        if (!rgbString) rgbString = DEFAULT_RGB;
+
+        const rgbArray = rgbString.split(",").map(val => parseInt(val.trim(), 10));
+        let [r_ha, g_ha, b_ha] = rgbArray;
+
+        let r, g, b, w;
+        if (state === "OFF") {
+            // 關燈：全部設為 0
+            r = g = b = w = 0;
+        } else {
+            // 開燈：使用 WRGB 演算法
+            // 1. 計算白光成分（取 RGB 三色的最小值作為白光）
+            w = Math.min(r_ha, g_ha, b_ha);
+            // 2. 將原 RGB 扣除白光成分
+            r = r_ha - w;
+            g = g_ha - w;
+            b = b_ha - w;
+            // 3. 按照亮度比例縮放
+            const totalWeight = r + g + b + w;
+            if (totalWeight === 0) {
+                r = g = b = 0;
+                w = brightness;
+            } else {
+                w = Math.round(brightness * w / totalWeight);
+                r = Math.round(brightness * r / totalWeight);
+                g = Math.round(brightness * g / totalWeight);
+                b = Math.round(brightness * b / totalWeight);
+            }
+        }
+
+        // 組 Modbus 0x10 指令 (Write Multiple Registers)
+        // 格式: [Module ID] [0x10] [Reg Hi] [Reg Lo] [Qty Hi] [Qty Lo] [Byte Count] [Data...]
+        const regHi = (reg >> 8) & 0xFF;
+        const regLo = reg & 0xFF;
+        const frame = Buffer.from([
+            moduleId, 0x10, regHi, regLo,
+            0x00, 0x02,  // 寫入 2 個寄存器
+            0x04,        // 4 bytes 資料
+            r, g, b, w
+        ]);
+        const cmd = generalCommandBuild(frame);
+
+        debugLog('modbus', `=== Modbus 指令 (RGB) ===`);
+        debugLog('modbus', `原始 RGB: ${r_ha},${g_ha},${b_ha}`);
+        debugLog('modbus', `WRGB 輸出: R=${r}, G=${g}, B=${b}, W=${w}`);
+        debugLog('modbus', `指令: ${cmd.toString('hex')}`);
+
+        modbusMessages.push({ payload: cmd, subType, moduleId, channel, state, brightness, rgb: rgbString });
+        mqttMessages.push({ topic: `${baseTopic}/state`, payload: state });
+        if (state === "ON") {
+            mqttMessages.push({ topic: `${baseTopic}/brightness`, payload: brightness });
+            mqttMessages.push({ topic: `${baseTopic}/rgb`, payload: rgbString });
+        }
+
+        node.status({
+            fill: state === "ON" ? "magenta" : "grey",
+            shape: "dot",
+            text: `RGB ${moduleId}-${channel}: ${state} ${brightness}%`
         });
     }
 

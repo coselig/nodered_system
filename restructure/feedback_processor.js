@@ -207,6 +207,46 @@ else if (funcCode === 0x05) {
     }
 }
 
+// ===== 0x10 Write Multiple Registers (RGB) =====
+else if (funcCode === 0x10) {
+    // 0x10 回應格式: [Module ID] [0x10] [Reg Hi] [Reg Lo] [Qty Hi] [Qty Lo] [CRC Lo] [CRC Hi]
+    // 長度: 8 bytes
+    const regHi = buf[2];
+    const regLo = buf[3];
+    const register = (regHi << 8) | regLo;
+    const qtyHi = buf[4];
+    const qtyLo = buf[5];
+    const quantity = (qtyHi << 8) | qtyLo;
+
+    debugLog('modbus', `=== 解析 RGB 回應 (0x10) ===`);
+    debugLog('modbus', `寄存器: 0x${register.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
+
+    // RGB 使用寄存器 0x0829 (通道 x), 0x082B (通道 y), 0x082D (通道 z)
+    const RGB_REGISTER_MAP = {
+        0x0829: "x",
+        0x082B: "y",
+        0x082D: "z"
+    };
+
+    const channel = RGB_REGISTER_MAP[register];
+    if (channel) {
+        const baseTopic = `homeassistant/light/rgb/${moduleId}/${channel}`;
+
+        // 從 flow context 取得當前狀態
+        const stateKey = `rgb_${moduleId}_${channel}_state`;
+        const state = flow.get(stateKey) || "OFF";
+
+        debugLog('modbus', `RGB 模組 ${moduleId} 通道 ${channel}: 指令已確認`);
+        debugLog('mqtt', `RGB 狀態確認: ${baseTopic}`);
+
+        node.status({
+            fill: state === "ON" ? "magenta" : "grey",
+            shape: "dot",
+            text: `RGB ${moduleId}-${channel}: ${state}`
+        });
+    }
+}
+
 // ===== HVAC 回應處理 (S200 空調模組，支援動態模組 ID 0-255) =====
 // 格式: [Module_ID] [0x03] [ByteCount] [Power Hi] [Power Lo] [Mode Hi] [Mode Lo] [Fan Hi] [Fan Lo] [Temp Hi] [Temp Lo] [CurrTemp Hi] [CurrTemp Lo] [0x00] [HVAC_ID*8] [CRC Lo] [CRC Hi]
 // ⚠️ 必須在燈光查詢之前檢查，因為都是 0x03 功能碼
