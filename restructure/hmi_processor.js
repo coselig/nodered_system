@@ -56,70 +56,71 @@ const HMI_pattern = [
             const operation = input[4];
             const sceneId = input[5];
 
-            // 場景對應的設備查詢列表
+            // ============================================================
+            // H70 場景對應的設備查詢列表
+            // 場景 ID 格式: 0x02=會議室, 0x03=公共區, 0xFF=全開/全關
+            // 操作: 0x01=S1(ON), 0x02=S2(OFF), 0x03=S3, 0x04=S4
+            // ============================================================
             const SCENE_QUERY_MAP = {
+                // ============ H70 場景 ============
                 0x02: {
-                    name: "會議室",
+                    name: "H70-會議室",
                     queries: [
+                        // 群組2: 會議室 (S1=ON 60%, S2=OFF, S3=100%, S4=特殊)
                         { topic: "homeassistant/query/single/13/1", payload: "query" },  // 會議間照
                         { topic: "homeassistant/query/single/13/2", payload: "query" },  // 冷氣間照
                         { topic: "homeassistant/query/single/13/3", payload: "query" },  // 會議崁燈
-                        { topic: "homeassistant/query/dual/14/a", payload: "query" },    // 會議室雙色溫A
-                        { topic: "homeassistant/query/dual/14/b", payload: "query" }     // 會議室雙色溫B
+                        { topic: "homeassistant/query/dual/14/a", payload: "query" },    // 軌道燈 (14-1亮度, 14-2色溫)
+                        { topic: "homeassistant/query/dual/14/b", payload: "query" }     // 會議桌 (14-3亮度, 14-4色溫)
                     ]
                 },
                 0x03: {
-                    name: "公共區",
+                    name: "H70-公共區",
                     queries: [
+                        // 群組3: 公共區 (S1=ON 50%, S2=OFF)
                         { topic: "homeassistant/query/single/11/1", payload: "query" },  // 走廊間照
-                        { topic: "homeassistant/query/single/11/2", payload: "query" },  // 走廊間照
                         { topic: "homeassistant/query/single/12/1", payload: "query" },  // 泡茶區
                         { topic: "homeassistant/query/single/12/2", payload: "query" },  // 走道崁燈
-                        { topic: "homeassistant/query/single/12/3", payload: "query" },  // 展示櫃
-                        { topic: "homeassistant/query/single/12/4", payload: "query" }   // 展示櫃
+                        { topic: "homeassistant/query/single/12/3", payload: "query" }   // 展示櫃
                     ]
                 },
-                0x04: {
-                    name: "戶外",
+                0xFF: {
+                    name: "H70-全開/全關",
                     queries: [
-                        { topic: "homeassistant/query/single/18/1", payload: "query" },  // 1F壁燈
-                        { topic: "homeassistant/query/single/18/2", payload: "query" },  // 1F地燈
+                        // 群組255: 全開/全關 (S1=全開, S2=全關)
+                        // 會議室區域
+                        { topic: "homeassistant/query/single/13/1", payload: "query" },  // 會議間照 60%
+                        { topic: "homeassistant/query/single/13/2", payload: "query" },  // 冷氣間照 60%
+                        { topic: "homeassistant/query/single/13/3", payload: "query" },  // 會議崁燈 60%
+                        { topic: "homeassistant/query/dual/14/a", payload: "query" },    // 軌道燈 50%
+                        { topic: "homeassistant/query/dual/14/b", payload: "query" },    // 會議桌 50%
+                        // 公共區域
+                        { topic: "homeassistant/query/single/11/1", payload: "query" },  // 走廊間照 50%
+                        { topic: "homeassistant/query/single/12/1", payload: "query" },  // 泡茶區 50%
+                        { topic: "homeassistant/query/single/12/2", payload: "query" },  // 走道崁燈 50%
+                        { topic: "homeassistant/query/single/12/3", payload: "query" }   // 展示櫃 50%
+                    ]
+                },
+
+                // ============ H40 場景 ============
+                0x04: {
+                    name: "H40-戶外燈",
+                    queries: [
+                        // 群組4: 戶外燈 (S1=ON 50%, S2=OFF)
+                        { topic: "homeassistant/query/single/18/1", payload: "query" },  // 1F地燈
+                        { topic: "homeassistant/query/single/18/2", payload: "query" },  // 1F壁燈
                         { topic: "homeassistant/query/single/19/1", payload: "query" },  // 2F壁燈
                         { topic: "homeassistant/query/single/19/2", payload: "query" }   // 2F地燈
                     ]
                 },
                 0x05: {
-                    name: "H40二樓",
+                    name: "H40-室內燈",
                     queries: [
-                        { topic: "homeassistant/query/single/15/1", payload: "query" },  // 客廳前
-                        { topic: "homeassistant/query/single/15/2", payload: "query" },  // 客廳後
-                        { topic: "homeassistant/query/single/16/1", payload: "query" },  // 走道間照
+                        // 群組5: 室內燈 (S1=全開50%, S2=全關, S3=舒適, S4=用餐, S5=影音, S6=睡眠)
+                        { topic: "homeassistant/query/single/15/1", payload: "query" },  // 客廳後
+                        { topic: "homeassistant/query/single/15/2", payload: "query" },  // 客廳前
                         { topic: "homeassistant/query/single/16/2", payload: "query" },  // 走道間照
-                        { topic: "homeassistant/query/single/17/1", payload: "query" },  // 廚房
-                        { topic: "homeassistant/query/single/17/2", payload: "query" },  // 廚房
-                        { topic: "homeassistant/query/single/18/1", payload: "query" },  // 1F壁燈
-                        { topic: "homeassistant/query/single/18/2", payload: "query" },  // 1F地燈
-                        { topic: "homeassistant/query/single/19/1", payload: "query" },  // 2F壁燈
-                        { topic: "homeassistant/query/single/19/2", payload: "query" }   // 2F地燈
-                    ]
-                },
-                0xFF: {
-                    name: "H70全開",
-                    queries: [
-                        // 會議室區域 (13-x)
-                        { topic: "homeassistant/query/single/13/1", payload: "query" },  // 會議間照 60%
-                        { topic: "homeassistant/query/single/13/2", payload: "query" },  // 冷氣間照 60%
-                        { topic: "homeassistant/query/single/13/3", payload: "query" },  // 會議崁燈 60%
-                        // 雙色溫燈 (14-x)
-                        { topic: "homeassistant/query/dual/14/1", payload: "query" },    // 軌道亮度 50%
-                        { topic: "homeassistant/query/dual/14/2", payload: "query" },    // 軌道色溫 50%
-                        { topic: "homeassistant/query/dual/14/3", payload: "query" },    // 會議桌亮度 50%
-                        { topic: "homeassistant/query/dual/14/4", payload: "query" },    // 會議桌色溫 50%
-                        // 公共區域 (11-x, 12-x)
-                        { topic: "homeassistant/query/single/11/1", payload: "query" },  // 走廊間照 50%
-                        { topic: "homeassistant/query/single/12/1", payload: "query" },  // 泡茶區 50%
-                        { topic: "homeassistant/query/single/12/2", payload: "query" },  // 走道崁燈 50%
-                        { topic: "homeassistant/query/single/12/3", payload: "query" }   // 展示櫃 50%
+                        { topic: "homeassistant/query/single/17/1", payload: "query" }   // 廚房
                     ]
                 }
             };
