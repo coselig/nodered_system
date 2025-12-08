@@ -1,5 +1,5 @@
 // 燈光設備配置生成器
-// 支援: 單色(single), 雙色溫(dual), RGB, Relay
+// 支援: 單色(single), 雙色溫(dual), WRGB, Relay
 
 // ============ 燈光設備定義 ============
 let lights = [
@@ -22,9 +22,9 @@ let lights = [
     { id: "single_18_2", name: "1F壁燈" },
     { id: "single_19_1", name: "2F壁燈" },
     { id: "single_19_2", name: "2F地燈" },
-    // RGB 燈光
-    { id: "rgb_2_x", name: "RGB燈-2" },
-    { id: "rgb_11_x", name: "RGB燈-11" },
+    // WRGB 燈光
+    { id: "wrgb_2_x", name: "WRGB燈-2" },
+    { id: "wrgb_11_x", name: "WRGB燈-11" },
 ];
 
 // ============ 配置生成函數 ============
@@ -64,7 +64,7 @@ function generateLightConfigs(lights) {
                 basePayload.max_mireds = 370; // 2700K
                 break;
             }
-            case "rgb": {
+            case "wrgb": {
                 basePayload.brightness = true;
                 basePayload.brightness_state_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/brightness`;
                 basePayload.brightness_command_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/set/brightness`;
