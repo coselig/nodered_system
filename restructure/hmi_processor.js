@@ -363,7 +363,9 @@ const HMI_pattern = [
             return [{ topic: "homeassistant/polling/trigger", payload: "query_all" }];
         }
     },
-    // 空調控制（狀態同步模式：HMI 直接控制設備，這裡只更新 HA 狀態）
+    // ========== 空調控制 ==========
+    // HMI 不會直接控制冷氣，需要 Node-RED 發送 Modbus 指令
+    // 這裡發送 set 指令讓 processor_hvac.js 處理
     // ⚠️ 注意：這些是舊格式，可能不再使用
     {
         name: "hvac_power_mode",
@@ -371,9 +373,9 @@ const HMI_pattern = [
         parse: (input) => {
             const powerValue = input[2];
             const hvacId = input[5];
-            const mode = powerValue === 0x01 ? "auto" : "off";
-            debugLog('hmi', `HMI空調狀態(舊): ${hvacId} 模式=${mode}`);
-            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/state`, payload: mode }];
+            const mode = powerValue === 0x01 ? "cool" : "off";  // 開機預設冷氣模式
+            debugLog('hmi', `HMI空調控制(舊): ${hvacId} 模式=${mode} → 發送控制指令`);
+            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: mode }];
         }
     },
     {
@@ -382,8 +384,8 @@ const HMI_pattern = [
         parse: (input) => {
             const tempValue = input[2];
             const hvacId = input[5];
-            debugLog('hmi', `HMI空調狀態: ${hvacId} 溫度=${tempValue}°C`);
-            return [{ topic: `homeassistant/hvac/200/${hvacId}/temperature/state`, payload: String(tempValue) }];
+            debugLog('hmi', `HMI空調控制: ${hvacId} 溫度=${tempValue}°C → 發送控制指令`);
+            return [{ topic: `homeassistant/hvac/200/${hvacId}/temperature/set`, payload: String(tempValue) }];
         }
     },
     {
@@ -400,8 +402,8 @@ const HMI_pattern = [
             };
             const mode = MODE_MAP[modeValue];
             if (!mode) return null;
-            debugLog('hmi', `HMI空調狀態: ${hvacId} 模式=${mode}`);
-            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/state`, payload: mode }];
+            debugLog('hmi', `HMI空調控制: ${hvacId} 模式=${mode} → 發送控制指令`);
+            return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: mode }];
         }
     },
     {
@@ -418,11 +420,12 @@ const HMI_pattern = [
             };
             const fan = FAN_MAP[fanValue];
             if (!fan) return null;
-            debugLog('hmi', `HMI空調狀態(舊): ${hvacId} 風量=${fan}`);
-            return [{ topic: `homeassistant/hvac/200/${hvacId}/fan/state`, payload: fan }];
+            debugLog('hmi', `HMI空調控制(舊): ${hvacId} 風量=${fan} → 發送控制指令`);
+            return [{ topic: `homeassistant/hvac/200/${hvacId}/fan/set`, payload: fan }];
         }
     },
     // HMI 實際格式 - 溫度控制（ASCII 字串格式）
+    // HMI 不會直接控制冷氣，發送 set 指令讓 processor_hvac.js 處理
     // 格式: [0xEE, 0x00, 0x00, 0xB1, 0x12, 0x00, 0x2C, 0x00, 0x1F, 0x00, 0x02, '3', '1', ...]
     {
         name: "hvac_temperature_ascii",
@@ -444,11 +447,12 @@ const HMI_pattern = [
             // 假設 HVAC ID = 1（可能需要從其他地方判斷）
             const hvacId = 1;
 
-            debugLog('hmi', `HMI空調狀態: ${hvacId} 溫度=${temperature}°C (ASCII: "${tempStr}")`);
-            return [{ topic: `homeassistant/hvac/200/${hvacId}/temperature/state`, payload: String(temperature) }];
+            debugLog('hmi', `HMI空調控制: ${hvacId} 溫度=${temperature}°C (ASCII: "${tempStr}") → 發送控制指令`);
+            return [{ topic: `homeassistant/hvac/200/${hvacId}/temperature/set`, payload: String(temperature) }];
         }
     },
     // HMI 實際格式 - 模式/風速控制
+    // HMI 不會直接控制冷氣，發送 set 指令讓 processor_hvac.js 處理
     // 格式: [0xEE, 0x00, 0x65, 0xB1, 0x11, 0x00, 0x2C, 0x00, byte8, 0x10, 0x01, 0x01, ...]
     // byte8 決定模式或風速
     {
@@ -467,8 +471,8 @@ const HMI_pattern = [
             if (byte8 === 0x0A) {
                 // byte11 決定開關：0x00=關機, 0x01=開機
                 const powerState = byte11 === 0x01 ? "cool" : "off";  // 開機預設為冷氣模式
-                debugLog('hmi', `HMI空調狀態: ${hvacId} 電源=${powerState === "off" ? "關" : "開"}`);
-                return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/state`, payload: powerState }];
+                debugLog('hmi', `HMI空調控制: ${hvacId} 電源=${powerState === "off" ? "關" : "開"} → 發送控制指令`);
+                return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: powerState }];
             }
 
             // 模式映射（基於 byte8）
@@ -490,15 +494,15 @@ const HMI_pattern = [
             // 先檢查是否為模式控制
             const mode = MODE_MAP[byte8];
             if (mode) {
-                debugLog('hmi', `HMI空調狀態: ${hvacId} 模式=${mode}`);
-                return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/state`, payload: mode }];
+                debugLog('hmi', `HMI空調控制: ${hvacId} 模式=${mode} → 發送控制指令`);
+                return [{ topic: `homeassistant/hvac/200/${hvacId}/mode/set`, payload: mode }];
             }
 
             // 再檢查是否為風速控制
             const fan = FAN_MAP[byte8];
             if (fan) {
-                debugLog('hmi', `HMI空調狀態: ${hvacId} 風速=${fan}`);
-                return [{ topic: `homeassistant/hvac/200/${hvacId}/fan/state`, payload: fan }];
+                debugLog('hmi', `HMI空調控制: ${hvacId} 風速=${fan} → 發送控制指令`);
+                return [{ topic: `homeassistant/hvac/200/${hvacId}/fan/set`, payload: fan }];
             }
 
             // 記錄未知格式以便調試
