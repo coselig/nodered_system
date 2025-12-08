@@ -8,7 +8,7 @@
  *   Output 2: MQTT 狀態   → 連接到 MQTT out
  * 
  * 前置需求：
- *   必須先執行 light_common.js 初始化共用模組
+ *   必須先執行 common.js 初始化共用模組
  * 
  * 支援的 Topic 格式:
  *   homeassistant/light/wrgb/{moduleId}/{channel}/set

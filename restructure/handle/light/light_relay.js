@@ -8,7 +8,7 @@
  *   Output 2: MQTT 狀態   → 連接到 MQTT out
  * 
  * 前置需求：
- *   必須先執行 light_common.js 初始化共用模組
+ *   必須先執行 common.js 初始化共用模組
  * 
  * 支援的 Topic 格式:
  *   homeassistant/light/relay/{moduleId}/{channel}/set
@@ -17,7 +17,7 @@
 // ========== 載入共用模組 ==========
 const lib = global.get('lib');
 if (!lib) {
-    node.error('共用模組未初始化，請先執行 light_common.js');
+    node.error('共用模組未初始化，請先執行 common.js');
     return null;
 }
 
