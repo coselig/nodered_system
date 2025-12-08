@@ -57,6 +57,13 @@ const CONST = {
         "z": 0x082D
     },
     
+    // === RGB 寄存器映射 (0x10 Write Multiple Registers, 純RGB無白光) ===
+    RGB_REGISTER_MAP: {
+        "x": 0x0829,
+        "y": 0x082B,
+        "z": 0x082D
+    },
+
     // === Feedback 用：寄存器反查映射 ===
     REGISTER_TO_SINGLE: {
         0x082A: { type: "single", channel: "1" },

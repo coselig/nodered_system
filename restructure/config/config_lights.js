@@ -1,5 +1,5 @@
 // 燈光設備配置生成器
-// 支援: 單色(single), 雙色溫(dual), WRGB, Relay
+// 支援: 單色(single), 雙色溫(dual), WRGB, RGB, Relay
 
 // ============ 燈光設備定義 ============
 let lights = [
@@ -22,9 +22,11 @@ let lights = [
     { id: "single_18_2", name: "1F壁燈" },
     { id: "single_19_1", name: "2F壁燈" },
     { id: "single_19_2", name: "2F地燈" },
-    // WRGB 燈光
+    // WRGB 燈光 (含白光通道)
     { id: "wrgb_2_x", name: "WRGB燈-2" },
     { id: "wrgb_11_x", name: "WRGB燈-11" },
+    // RGB 燈光 (純RGB，無白光通道)
+    { id: "rgb_11_x", name: "RGB燈-11" },
 ];
 
 // ============ 配置生成函數 ============
@@ -65,6 +67,17 @@ function generateLightConfigs(lights) {
                 break;
             }
             case "wrgb": {
+                basePayload.brightness = true;
+                basePayload.brightness_state_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/brightness`;
+                basePayload.brightness_command_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/set/brightness`;
+                basePayload.brightness_scale = 100;
+                basePayload.rgb = true;
+                basePayload.rgb_state_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/rgb`;
+                basePayload.rgb_command_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/set/rgb`;
+                break;
+            }
+            case "rgb": {
+                // RGB 燈光 (純RGB，無白光通道)
                 basePayload.brightness = true;
                 basePayload.brightness_state_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/brightness`;
                 basePayload.brightness_command_topic = `homeassistant/light/${lightType}/${moduleId}/${channel}/set/brightness`;
