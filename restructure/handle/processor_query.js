@@ -11,6 +11,7 @@
  *   homeassistant/query/single/{moduleId}/{channel}
  *   homeassistant/query/dual/{moduleId}/{channel}
  *   homeassistant/query/relay/{moduleId}/{channel}
+ *   homeassistant/query/hvac/{s200Id}/{hvacId}
  */
 
 // ========== 共用模組 ==========
@@ -82,6 +83,24 @@ else if (querySubType === "relay") {
     frame = Buffer.from([moduleId, 0x01, addrHi, addrLo, qtyHi, qtyLo]);
 
     debugLog('query', `讀取線圈: 0x${addr.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
+}
+else if (querySubType === "hvac") {
+    // 查詢 HVAC: Read Holding Registers (0x03)
+    // HVAC 資料格式: 起始地址 = 0x100 + hvacId * 8, 讀取 6 個寄存器
+    // [Power] [Mode] [Fan] [Temp] [CurrentTemp] [Reserved]
+    const hvacId = parseInt(channel);
+    const startReg = 0x100 + hvacId * 8;
+    const quantity = 6;
+
+    const regHi = (startReg >> 8) & 0xFF;
+    const regLo = startReg & 0xFF;
+    const qtyHi = (quantity >> 8) & 0xFF;
+    const qtyLo = quantity & 0xFF;
+
+    frame = Buffer.from([moduleId, 0x03, regHi, regLo, qtyHi, qtyLo]);
+
+    debugLog('query', `HVAC 查詢: S200=${moduleId}, HVAC ID=${hvacId}`);
+    debugLog('query', `讀取寄存器: 0x${startReg.toString(16).padStart(4, '0')}, 數量: ${quantity}`);
 }
 else {
     debugLog('query', `不支援的查詢類型: ${querySubType}`);

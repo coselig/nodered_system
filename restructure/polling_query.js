@@ -43,6 +43,12 @@ const QUERY_DEVICES = [
     // { type: "curtain", moduleId: 23, channel: "1-2" },    // 布簾
     // { type: "curtain", moduleId: 23, channel: "3-4" },    // 沙簾
     // { type: "curtain", moduleId: 23, channel: "5-6-7" },  // 排煙窗
+
+    // ========== HVAC 空調 ==========
+    { type: "hvac", moduleId: 200, channel: "1" },  // 客廳空調
+    { type: "hvac", moduleId: 200, channel: "2" },  // 會議室空調
+    { type: "hvac", moduleId: 200, channel: "3" },  // 玄關空調
+    // { type: "hvac", moduleId: 200, channel: "9" },  // 辦公室測試
 ];
 
 // 產生查詢訊息

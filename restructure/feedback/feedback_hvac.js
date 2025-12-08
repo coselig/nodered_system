@@ -78,13 +78,13 @@ debugLog('modbus', `模式字串: ${mode_state_str}, 風速字串: ${fan_mode_st
 const baseTopic = `homeassistant/hvac/${moduleId}/${hvac_id}`;
 
 mqttMessages.push({ topic: `${baseTopic}/mode/state`, payload: mode_state_str });
-mqttMessages.push({ topic: `${baseTopic}/fan_mode/state`, payload: fan_mode_state_str });
+mqttMessages.push({ topic: `${baseTopic}/fan/state`, payload: fan_mode_state_str });  // fan_mode → fan (配合 config_climates.js)
 mqttMessages.push({ topic: `${baseTopic}/temperature/state`, payload: temperature_state });
 mqttMessages.push({ topic: `${baseTopic}/current_temperature`, payload: current_temperature_state });
 
 // 更新快取
 flow.set(`hvac_${moduleId}_${hvac_id}_mode`, mode_state_str);
-flow.set(`hvac_${moduleId}_${hvac_id}_fan_mode`, fan_mode_state_str);
+flow.set(`hvac_${moduleId}_${hvac_id}_fan`, fan_mode_state_str);  // fan_mode → fan
 flow.set(`hvac_${moduleId}_${hvac_id}_temperature`, temperature_state);
 flow.set(`hvac_${moduleId}_${hvac_id}_current_temperature`, current_temperature_state);
 
