@@ -9,8 +9,12 @@
  * 輸出：
  *   msg.payload = Buffer (含 CRC 的完整 Modbus 指令)
  * 
- * 使用方式：
- *   processor_light → crc_builder → modbus_queue
+ * 連接架構：
+ *   各處理器 (light_*.js, processor_*.js) → crc_builder → modbus_queue
+ * 
+ * 支援的處理器：
+ *   - light_single.js, light_dual.js, light_relay.js, light_wrgb.js
+ *   - processor_cover.js, processor_hvac.js, processor_query.js, processor_memory.js
  */
 
 function crc16(buf) {

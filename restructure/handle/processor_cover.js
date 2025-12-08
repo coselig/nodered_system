@@ -4,11 +4,11 @@
  * Node Type: function
  * 
  * 輸出：
- *   Output 1: Modbus 指令 → 連接到 modbus_queue.js
+ *   Output 1: Modbus 指令 → 連接到 crc_builder → modbus_queue
  *   Output 2: MQTT 狀態   → 連接到 MQTT out
  * 
  * 支援的 Topic 格式:
- *   homeassistant/cover/general/{moduleId}/set
+ *   homeassistant/cover/{curtain|general}/{moduleId}/{controlType}/set
  *   payload: "1_2/3" 表示開啟 relay 1 和 2，關閉 relay 3
  */
 

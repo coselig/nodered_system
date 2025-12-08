@@ -3,9 +3,16 @@
  * 
  * Node Type: function
  * 
+ * 運作方式：
+ *   場景處理器不直接產生 Modbus 指令，而是透過 MQTT 觸發個別設備處理器。
+ *   這樣可以避免重複 Modbus 邏輯，且每個設備的指令邏輯只需維護一處。
+ * 
+ *   流程：
+ *   processor_scene → MQTT out → MQTT in → 個別處理器 → crc_builder → modbus_queue
+ * 
  * 輸出：
- *   Output 1: Modbus 指令 → 連接到 modbus_queue.js (保留供未來擴展)
- *   Output 2: MQTT 狀態   → 連接到 MQTT out
+ *   Output 1: (未使用，保留供未來擴展)
+ *   Output 2: MQTT 訊息 → 連接到 MQTT out
  * 
  * 支援的設備類型:
  *   - single: 單色溫燈 (亮度)
