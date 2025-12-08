@@ -23,7 +23,7 @@ if (!lib) {
 
 const { CONST, UTILS } = lib;
 const { buildCoilCommand } = UTILS;
-const { CHANNEL_COIL_MAP } = CONST;
+const { RELAY_COIL_MAP } = CONST;
 
 function debugLog(category, message) {
     UTILS.debugLog.call({ warn: node.warn.bind(node) }, category, message);
@@ -48,7 +48,7 @@ let modbusMessages = [];
 let mqttMessages = [];
 const baseTopic = `homeassistant/light/relay/${moduleId}/${channel}`;
 
-const addr = CHANNEL_COIL_MAP[channel];
+const addr = RELAY_COIL_MAP[channel];
 if (addr === undefined) {
     debugLog('modbus', `找不到 Relay 通道 ${channel}`);
     return null;

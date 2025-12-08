@@ -19,13 +19,12 @@
 const lib = global.get('lib');
 if (!lib) {
     node.error('共用模組未初始化，請先執行 common.js');
-    node.error('共用模組未初始化，請先執行 light_common.js');
     return null;
 }
 
 const { CONST, UTILS } = lib;
 const { clamp, buildCommand } = UTILS;
-const { DEFAULT_BRIGHTNESS, BRIGHTNESS_TIME, CHANNEL_REGISTER_MAP } = CONST;
+const { DEFAULT_BRIGHTNESS, BRIGHTNESS_TIME, SINGLE_REGISTER_MAP } = CONST;
 
 function debugLog(category, message) {
     UTILS.debugLog.call({ warn: node.warn.bind(node) }, category, message);
@@ -66,7 +65,7 @@ if (parts.length >= 7 && parts[5] === "set" && parts[6] === "brightness") {
 }
 
 // 處理開關指令
-const reg = CHANNEL_REGISTER_MAP[channel];
+const reg = SINGLE_REGISTER_MAP[channel];
 if (!reg) {
     debugLog('modbus', `找不到通道 ${channel} 的寄存器`);
     return null;

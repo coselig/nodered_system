@@ -19,12 +19,12 @@
 // ========== 載入共用模組 ==========
 const lib = global.get('lib');
 if (!lib) {
-    node.error('共用模組未初始化，請先執行 light_common.js');
+    node.error('共用模組未初始化，請先執行 common.js');
     return null;
 }
 
 const { CONST, UTILS } = lib;
-const { clamp, buildMultiCommand, rgbToWrgb, parseWrgb } = UTILS;
+const { clamp, buildMultiCommand, rgbToWrgb, parseRgb } = UTILS;
 const { DEFAULT_BRIGHTNESS, DEFAULT_WRGB, WRGB_REGISTER_MAP } = CONST;
 
 function debugLog(category, message) {
@@ -89,7 +89,7 @@ brightness = clamp(Math.round(brightness), 0, 100);
 let rgbString = flow.get(`wrgb_${moduleId}_${channel}_rgb`);
 if (!rgbString) rgbString = DEFAULT_WRGB;
 
-const { r: r_ha, g: g_ha, b: b_ha } = parseWrgb(rgbString);
+const { r: r_ha, g: g_ha, b: b_ha } = parseRgb(rgbString);
 
 let r, g, b, w;
 if (state === "OFF") {

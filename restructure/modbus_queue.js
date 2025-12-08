@@ -1,5 +1,6 @@
 // 設定
 const TIMEOUT_MS = 500;  // 等待 feedback 超時時間 (毫秒)
+const MAX_QUEUE_SIZE = 100;  // 佇列最大長度，超過自動清空
 
 // Debug 控制 - 強制啟用 queue debug
 const globalDebug = global.get('debug_config') || {};
@@ -57,6 +58,17 @@ if (!isQueueCommand) {
     flow.set('modbus_queue', queue);
     debugLog('queue', `佇列長度: ${queue.length}`);
     
+    // 佇列過長，自動清空
+    if (queue.length > MAX_QUEUE_SIZE) {
+        node.warn(`⚠️ 佇列超過 ${MAX_QUEUE_SIZE} 個指令，自動清空！`);
+        queue = [];
+        flow.set('modbus_queue', []);
+        flow.set('modbus_queue_processing', false);
+        flow.set('modbus_queue_current', null);
+        node.status({ fill: "red", shape: "ring", text: `佇列溢出，已清空` });
+        return null;
+    }
+
     // 如果目前沒有在處理，開始處理
     if (!isProcessing) {
         sendNext();

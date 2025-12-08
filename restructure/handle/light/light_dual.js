@@ -25,7 +25,7 @@ if (!lib) {
 
 const { CONST, UTILS } = lib;
 const { clamp, buildCommand, miredToPercent } = UTILS;
-const { DEFAULT_BRIGHTNESS, DEFAULT_COLORTEMP, MIN_MIRED, MAX_MIRED, BRIGHTNESS_TIME, CHANNEL_REGISTER_MAP } = CONST;
+const { DEFAULT_BRIGHTNESS, DEFAULT_COLORTEMP, MIN_MIRED, MAX_MIRED, BRIGHTNESS_TIME, DUAL_REGISTER_MAP } = CONST;
 
 function debugLog(category, message) {
     UTILS.debugLog.call({ warn: node.warn.bind(node) }, category, message);
@@ -50,7 +50,7 @@ let modbusMessages = [];
 let mqttMessages = [];
 const baseTopic = `homeassistant/light/dual/${moduleId}/${channel}`;
 
-const regs = CHANNEL_REGISTER_MAP[channel];
+const regs = DUAL_REGISTER_MAP[channel];
 if (!regs) {
     debugLog('modbus', `找不到通道 ${channel} 的寄存器`);
     return null;
