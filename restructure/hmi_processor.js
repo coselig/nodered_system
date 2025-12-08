@@ -9,6 +9,10 @@
 
 const MIN_MIRED = 167, MAX_MIRED = 333;
 
+// ========== 功能開關 ==========
+// 設為 false 可暫時停用非冷氣的 HMI 查詢（燈光、窗簾、場景等）
+const ENABLE_NON_HVAC_QUERY = false;
+
 // Debug 控制
 const debugConfig = global.get('debug_config') || {
     topic: true,
@@ -515,6 +519,17 @@ function matchPattern(input, pattern) {
     return true;
 }
 
+// 非冷氣的 pattern 名稱列表（用於開關控制）
+const NON_HVAC_PATTERNS = [
+    "curtain_control",
+    "scene_unified",
+    "light_control_unified",
+    "dual_light",
+    "single_light_with_value",
+    "single_light_control",
+    "single_light_value"
+];
+
 function bufferToHexArray(buf) {
     return [...buf].map(v => "0x" + v.toString(16).padStart(2, "0").toUpperCase());
 }
@@ -532,6 +547,13 @@ for (const p of HMI_pattern) {
     if (matchPattern(input, p.pattern)) {
         matchedPattern = p.name;
         debugLog('hmi', `✓ 匹配到 pattern: ${p.name}`);
+
+        // 檢查是否為非冷氣的 pattern，且開關關閉
+        if (!ENABLE_NON_HVAC_QUERY && NON_HVAC_PATTERNS.includes(p.name)) {
+            debugLog('hmi', `⏸ 非冷氣查詢已停用，跳過 ${p.name}`);
+            return null;
+        }
+
         result = p.parse(input);
         if (result) {
             debugLog('hmi', `✓ parse 成功,返回 ${result.length} 個指令`);
