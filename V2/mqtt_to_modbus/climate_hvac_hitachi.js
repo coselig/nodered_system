@@ -1,10 +1,10 @@
 /**
- * 空調處理器 - 支援 HVAC 控制
+ * 空調處理器 - 支援 HVAC 控制（不含 CRC）
  * 
  * Node Type: function
  * 
  * 輸出：
- *   Output 1: Modbus 指令 → 連接到 modbus_queue.js
+ *   Output 1: Modbus 指令（不含 CRC）→ 請串接 crc_builder 節點
  *   Output 2: MQTT 狀態   → 連接到 MQTT out
  * 
  * 支援的 Topic 格式:
@@ -13,20 +13,7 @@
  *   homeassistant/hvac/{s200Id}/{hvacId}/fan/set      (payload: "auto", "low", "medium", "high")
  */
 
-// ========== 共用模組 ==========
-// CRC16 MODBUS
-function crc16(buf) {
-    let crc = 0xFFFF;
-    for (const b of buf) {
-        crc ^= b;
-        for (let i = 0; i < 8; i++) {
-            crc = (crc & 1)
-                ? ((crc >> 1) ^ 0xA001)
-                : (crc >> 1);
-        }
-    }
-    return crc;
-}
+// ...existing code...
 
 // ========== 常數定義 ==========
 const MODE_MAP = {
@@ -92,11 +79,6 @@ const cmd = Buffer.from([
     speed,
     value
 ]);
-const crc = crc16(cmd);
-const crcLow = crc & 0xFF;
-const crcHigh = (crc >> 8) & 0xFF;
-msg.payload = Buffer.concat([
-    cmd,
-    Buffer.from([crcLow, crcHigh])
-]);
+// 只輸出不含 CRC 的 Modbus 指令
+msg.payload = cmd;
 return msg;

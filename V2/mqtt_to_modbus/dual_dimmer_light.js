@@ -1,14 +1,20 @@
 /**
- * 雙色溫（dual）控制：產生兩筆 Modbus 指令（含 CRC16）
+ * 雙色溫（dual）控制：產生兩筆 Modbus 指令（不含 CRC）
  * Topic: homeassistant/light/dual/{id}/{channel}/set
  * Payload: "ON" | "OFF" | boolean | number
  *
  * 指令格式：
- * [SLAVE_ID, 0x06, REG_HI, REG_LO, DIMMING_SPEED, VALUE, CRC_LOW, CRC_HIGH]
+ * [SLAVE_ID, 0x06, REG_HI, REG_LO, DIMMING_SPEED, VALUE]
  *
  * 通道寄存器：
  * a → 2090 (0x082A, 亮度), 2091 (0x082B, 色溫)
  * b → 2092 (0x082C, 亮度), 2093 (0x082D, 色溫)
+ *
+ * 輸出：
+ *   msg.payload = Buffer (不含 CRC 的 Modbus 指令)
+ *
+ * 使用方式：
+ *   請串接 crc_builder 節點處理 CRC
  */
 
 const DEFAULT_BRIGHTNESS = 100; // 0~100
@@ -21,25 +27,11 @@ const CHANNEL_REGISTER_MAP = {
     "b": [0x082C, 0x082D]
 };
 
-// CRC16
-function crc16(buf) {
-    let crc = 0xFFFF;
-    for (const b of buf) {
-        crc ^= b;
-        for (let i = 0; i < 8; i++) {
-            crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);
-        }
-    }
-    return crc;
-}
-
-// 建立單筆 0x06 指令
+// 建立單筆 0x06 指令（不含 CRC）
 function buildCommand(id, reg, value) {
     const hi = (reg >> 8) & 0xFF;
     const lo = reg & 0xFF;
-    let cmd = Buffer.from([id, 0x06, hi, lo, DIMMING_SPEED, value]);
-    const crc = crc16(cmd);
-    return Buffer.concat([cmd, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])]);
+    return Buffer.from([id, 0x06, hi, lo, DIMMING_SPEED, value]);
 }
 
 // ===================== 主流程 =====================
@@ -73,11 +65,10 @@ const brValue = (state === "ON") ? brightness : 0;
 // 色溫轉換 (mired → 0~100)
 const ctPercent = Math.round(((MAX_MIRED - colortemp) / (MAX_MIRED - MIN_MIRED)) * 100);
 
-// 產生兩筆指令
+// 產生兩筆指令（不含 CRC）
 const cmdBrightness = buildCommand(slaveId, regs[0], brValue);
 const cmdColortemp = buildCommand(slaveId, regs[1], ctPercent);
 
-// 輸出兩筆
 node.send({ payload: cmdBrightness });
 node.send({ payload: cmdColortemp });
 
