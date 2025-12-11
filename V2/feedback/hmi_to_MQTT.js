@@ -1,64 +1,41 @@
 /**
- * HMI 處理器 - 觸控螢幕指令解析
+ * HMI 處理器 - 觸控螢幕指令解析（優化版）
  */
 
-const MIN_MIRED = 167, MAX_MIRED = 333;
+const MODE_MAP = {
+    0x00: "cool",
+    0x01: "dry",
+    0x02: "fan_only",
+    0x04: "heat"
+};
+const FAN_MAP = {
+    0x03: "medium",
+    0x04: "high",
+    0x05: "auto",
+    0x07: "low"
+};
 
-const HMI_pattern = [
-    // ========== 空調控制 ==========
+const HMI_PATTERN = [
     {
-        name: "hvac_power_mode",
         pattern: [0x01, 0x31, null, 0x01, 0x01, null],
-        parse: (input) => {
-            const powerValue = input[2];
-            const hvacId = input[5];
-            const mode = powerValue === 0x01 ? "cool" : "off";  // 開機預設冷氣模式
-            return [{ topic: `homeassistant/hvac/hitachi/200/${hvacId}/mode/set`, payload: mode }];
-        }
+        topic: (input) => `homeassistant/hvac/hitachi/200/${input[5]}/mode/set`,
+        payload: (input) => input[2] === 0x01 ? "cool" : "off"
     },
     {
-        name: "hvac_temperature",
         pattern: [0x01, 0x32, null, 0x01, 0x01, null],
-        parse: (input) => {
-            const tempValue = input[2];
-            const hvacId = input[5];
-            return [{ topic: `homeassistant/hvac/hitachi/200/${hvacId}/temperature/set`, payload: String(tempValue) }];
-        }
+        topic: (input) => `homeassistant/hvac/hitachi/200/${input[5]}/temperature/set`,
+        payload: (input) => String(input[2])
     },
     {
-        name: "hvac_mode",
         pattern: [0x01, 0x33, null, 0x01, 0x01, null],
-        parse: (input) => {
-            const modeValue = input[2];
-            const hvacId = input[5];
-            const MODE_MAP = {
-                0x00: "cool",
-                0x01: "dry",
-                0x02: "fan_only",
-                0x04: "heat"
-            };
-            const mode = MODE_MAP[modeValue];
-            if (!mode) return null;
-            return [{ topic: `homeassistant/hvac/hitachi/200/${hvacId}/mode/set`, payload: mode }];
-        }
+        topic: (input) => `homeassistant/hvac/hitachi/200/${input[5]}/mode/set`,
+        payload: (input) => MODE_MAP[input[2]]
     },
     {
-        name: "hvac_fan_speed",
         pattern: [0x01, 0x34, null, 0x01, 0x01, null],
-        parse: (input) => {
-            const fanValue = input[2];
-            const hvacId = input[5];
-            const FAN_MAP = {
-                0x03: "medium",
-                0x04: "high",
-                0x05: "auto",
-                0x07: "low"
-            };
-            const fan = FAN_MAP[fanValue];
-            if (!fan) return null;
-            return [{ topic: `homeassistant/hvac/hitachi/200/${hvacId}/fan/set`, payload: fan }];
-        }
-    },
+        topic: (input) => `homeassistant/hvac/hitachi/200/${input[5]}/fan/set`,
+        payload: (input) => FAN_MAP[input[2]]
+    }
 ];
 
 function matchPattern(input, pattern) {
@@ -71,21 +48,18 @@ function matchPattern(input, pattern) {
     return true;
 }
 
-function bufferToHexArray(buf) {
-    return [...buf].map(v => "0x" + v.toString(16).padStart(2, "0").toUpperCase());
-}
-
 if (!msg.payload || !Buffer.isBuffer(msg.payload)) {
     return null;
 }
 
-let input = Array.from(msg.payload);
-let result = null;
-
-for (const p of HMI_pattern) {
+const input = Array.from(msg.payload);
+for (const p of HMI_PATTERN) {
     if (matchPattern(input, p.pattern)) {
-        result = p.parse(input);
-        if (result && Array.isArray(result) && result.length > 0) return [result];
+        const topic = p.topic(input);
+        const payload = p.payload(input);
+        if (topic && payload !== undefined && payload !== null) {
+            return [[{ topic, payload }]];
+        }
         break;
     }
 }
