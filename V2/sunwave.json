@@ -133,15 +133,15 @@
             "3dd6e3fdbafcc77b",
             "67988b0d6b89ac6b",
             "0544c0e13fe478be",
-            "70690d0b89457617",
             "2cb5d87046cf4e48",
-            "ba4394f96634d43c",
-            "9008d6f89255fd25"
+            "8bcf34a93310e225",
+            "37db5abb5a3ef2b6",
+            "81f07a968c7807da"
         ],
         "x": 1194,
-        "y": 819,
-        "w": 972,
-        "h": 302
+        "y": 813,
+        "w": 1172,
+        "h": 348
     },
     {
         "id": "c960ad2cf785aa36",
@@ -284,7 +284,7 @@
         ],
         "x": 34,
         "y": 639,
-        "w": 762,
+        "w": 752,
         "h": 122
     },
     {
@@ -307,10 +307,50 @@
             "8d4a6d0b00491221",
             "7c8300e57aa079a4"
         ],
-        "x": 2194,
+        "x": 2394,
         "y": 899,
         "w": 772,
         "h": 202
+    },
+    {
+        "id": "37db5abb5a3ef2b6",
+        "type": "group",
+        "z": "8dc927f2ab7dee3c",
+        "g": "2d93e84dbc762f21",
+        "name": "冷氣網關",
+        "style": {
+            "label": true,
+            "stroke-opacity": "0"
+        },
+        "nodes": [
+            "9008d6f89255fd25"
+        ],
+        "x": 1854,
+        "y": 839,
+        "w": 272,
+        "h": 82
+    },
+    {
+        "id": "81f07a968c7807da",
+        "type": "group",
+        "z": "8dc927f2ab7dee3c",
+        "g": "2d93e84dbc762f21",
+        "name": "非冷氣類型的網關",
+        "style": {
+            "stroke": "none",
+            "stroke-opacity": "0.3",
+            "label": true
+        },
+        "nodes": [
+            "ba4394f96634d43c",
+            "e03c4bafb2cdf6d4",
+            "de75cc0c82bb599c",
+            "5f6f957295b47d82"
+        ],
+        "x": 1854,
+        "y": 899,
+        "w": 332,
+        "h": 122
     },
     {
         "id": "5940262c17b7a555",
@@ -425,31 +465,17 @@
         ]
     },
     {
-        "id": "70690d0b89457617",
-        "type": "junction",
-        "z": "8dc927f2ab7dee3c",
-        "g": "2d93e84dbc762f21",
-        "x": 1680,
-        "y": 940,
-        "wires": [
-            [
-                "ba4394f96634d43c",
-                "9008d6f89255fd25"
-            ]
-        ]
-    },
-    {
         "id": "2cb5d87046cf4e48",
         "type": "junction",
         "z": "8dc927f2ab7dee3c",
         "g": "2d93e84dbc762f21",
-        "x": 1960,
-        "y": 940,
+        "x": 2220,
+        "y": 920,
         "wires": [
             [
                 "3912bd7fe7e5e075",
-                "dce38c10e062cbf8",
-                "8d4a6d0b00491221"
+                "8d4a6d0b00491221",
+                "dce38c10e062cbf8"
             ]
         ]
     },
@@ -458,7 +484,7 @@
         "type": "junction",
         "z": "8dc927f2ab7dee3c",
         "g": "1054b9ebf82dca49",
-        "x": 2240,
+        "x": 2440,
         "y": 1000,
         "wires": [
             [
@@ -474,12 +500,39 @@
         "type": "junction",
         "z": "8dc927f2ab7dee3c",
         "g": "1054b9ebf82dca49",
-        "x": 2740,
+        "x": 2940,
         "y": 1020,
         "wires": [
             [
                 "c4b381f3dfde98e3",
                 "4a797ecbcebbf869"
+            ]
+        ]
+    },
+    {
+        "id": "de75cc0c82bb599c",
+        "type": "junction",
+        "z": "8dc927f2ab7dee3c",
+        "g": "81f07a968c7807da",
+        "x": 1880,
+        "y": 960,
+        "wires": [
+            [
+                "ba4394f96634d43c",
+                "e03c4bafb2cdf6d4"
+            ]
+        ]
+    },
+    {
+        "id": "5f6f957295b47d82",
+        "type": "junction",
+        "z": "8dc927f2ab7dee3c",
+        "g": "81f07a968c7807da",
+        "x": 2160,
+        "y": 960,
+        "wires": [
+            [
+                "2cb5d87046cf4e48"
             ]
         ]
     },
@@ -591,7 +644,7 @@
         "correl": "",
         "expiry": "",
         "broker": "751ec40a6956d4f9",
-        "x": 2850,
+        "x": 3050,
         "y": 1000,
         "wires": []
     },
@@ -599,6 +652,7 @@
         "id": "71de6bd3492a1507",
         "type": "inject",
         "z": "8dc927f2ab7dee3c",
+        "d": true,
         "g": "a7c8c0bb7568a462",
         "name": "",
         "props": [],
@@ -621,7 +675,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "a7c8c0bb7568a462",
         "name": "設備清單",
-        "func": "// 設定設備清單\nvar devices = context.get('devices') || [\n    // 11,12,13,\n    14,\n    // 15,16,17,18,19\n    ]; // 默認設備清單\n// 為每個設備生成一條消息\nvar msgs = devices.map(deviceID => {\n    return {\n        deviceID: deviceID // 將設備 ID 添加到消息中\n    };\n});\n\n// 返回所有消息\nreturn [msgs];\n",
+        "func": "// 設定設備清單\nvar devices = context.get('devices') || [\n   11,12,13,\n    14,\n   15,16,17,18,19\n    ]; // 默認設備清單\n// 為每個設備生成一條消息\nvar msgs = devices.map(deviceID => {\n    return {\n        deviceID: deviceID // 將設備 ID 添加到消息中\n    };\n});\n\n// 返回所有消息\nreturn [msgs];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -729,8 +783,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1970,
-        "y": 1080,
+        "x": 2190,
+        "y": 1120,
         "wires": [
             [
                 "3dd6e3fdbafcc77b"
@@ -750,8 +804,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1760,
-        "y": 1080,
+        "x": 2000,
+        "y": 1120,
         "wires": [
             [
                 "97933ae9c90da632"
@@ -785,7 +839,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "2d93e84dbc762f21",
         "name": "回覆",
-        "active": true,
+        "active": false,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -793,8 +847,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2070,
-        "y": 900,
+        "x": 2270,
+        "y": 860,
         "wires": []
     },
     {
@@ -803,7 +857,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "2d93e84dbc762f21",
         "name": "發送",
-        "active": true,
+        "active": false,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -821,19 +875,19 @@
         "z": "8dc927f2ab7dee3c",
         "g": "2d93e84dbc762f21",
         "name": "發送流程 + timeout",
-        "func": "// === 發送流程 + timeout ===\n// 功能：\n// 1. 從 commandsQueue 取出下一筆指令並發送\n// 2. 啟動 Timeout + Retry 機制\n// 3. 超過 MAX_RETRY → 丟掉該筆，繼續下一筆\n// 4. 部署後自動解鎖（避免 waitingReply 卡死）\n\nconst TIMEOUT_MS = 600; // 建議 600~1200ms，依設備回覆時間調整\nconst MAX_RETRY = 2;   // 最大重送次數；總發送次數 = 1 + MAX_RETRY\n\n// === Queue 狀態 ===\nlet queue = global.get(\"commandsQueue\");\nif (!Array.isArray(queue)) {\n  queue = [];\n  global.set(\"commandsQueue\", queue);\n}\n\nconst busy = !!global.get(\"waitingReply\");\n\n// === 若忙碌或佇列空 → 不動作 ===\nif (busy || queue.length === 0) return [null, null];\n\n// === 取 FIFO 出列 ===\nconst cmd = queue.shift();\nglobal.set(\"commandsQueue\", queue);\nglobal.set(\"waitingReply\", true);\n\n// 準備訊息（含 retry 計數）\nlet outMsg = { payload: cmd, retry: 0 };\nflow.set(\"currentCmd\", outMsg);\n\n// === Timeout + Retry 機制 ===\nfunction armTimeout(cur) {\n  const timer = setTimeout(() => {\n    cur.retry += 1;\n\n    if (cur.retry <= MAX_RETRY) {\n      // Retry → 重送同一筆\n      flow.set(\"currentCmd\", cur);\n      node.send([cur, null]);  // 再送一次到 TCP\n      armTimeout(cur);         // 重新掛 Timeout\n    } else {\n      // 超過 MAX_RETRY → 丟棄這筆，解鎖繼續下一筆\n      global.set(\"waitingReply\", false);\n      flow.set(\"currentCmd\", null);\n      flow.set(\"currentTimeout\", null);\n\n      node.status({\n        fill: \"red\",\n        shape: \"ring\",\n        text: \"指令超時已丟棄\"\n      });\n\n      // 觸發下一筆\n      node.send([null, { payload: { trigger: true, reason: \"timeout\" } }]);\n    }\n  }, TIMEOUT_MS);\n\n  flow.set(\"currentTimeout\", timer);\n}\n\n// === 送出第一筆並掛 Timeout ===\narmTimeout(outMsg);\nreturn [outMsg, null];",
+        "func": "// === 發送流程 + timeout ===\n// 功能：\n// 1. 從 commandsQueue 取出下一筆指令並發送\n// 2. 啟動 Timeout + Retry 機制\n// 3. 超過 MAX_RETRY → 丟掉該筆，繼續下一筆\n// 4. 部署後自動解鎖（避免 waitingReply 卡死）\n\nconst TIMEOUT_MS = 200; // 建議 600~1200ms，依設備回覆時間調整\nconst MAX_RETRY = 2;   // 最大重送次數；總發送次數 = 1 + MAX_RETRY\n\n// === Queue 狀態 ===\nlet queue = global.get(\"commandsQueue\");\nif (!Array.isArray(queue)) {\n  queue = [];\n  global.set(\"commandsQueue\", queue);\n}\n\nconst busy = !!global.get(\"waitingReply\");\n\n// === 若忙碌或佇列空 → 不動作 ===\nif (busy || queue.length === 0) return [null, null];\n\n// === 取 FIFO 出列 ===\nconst cmd = queue.shift();\nglobal.set(\"commandsQueue\", queue);\nglobal.set(\"waitingReply\", true);\n\n// 準備訊息（含 retry 計數）\nlet outMsg = { payload: cmd, retry: 0 };\nflow.set(\"currentCmd\", outMsg);\n\n// === Timeout + Retry 機制 ===\nfunction armTimeout(cur) {\n  const timer = setTimeout(() => {\n    cur.retry += 1;\n\n    if (cur.retry <= MAX_RETRY) {\n      // Retry → 重送同一筆\n      flow.set(\"currentCmd\", cur);\n      node.send([cur, null]);  // 再送一次到 TCP\n      armTimeout(cur);         // 重新掛 Timeout\n    } else {\n      // 超過 MAX_RETRY → 丟棄這筆，解鎖繼續下一筆\n      global.set(\"waitingReply\", false);\n      flow.set(\"currentCmd\", null);\n      flow.set(\"currentTimeout\", null);\n\n      node.status({\n        fill: \"red\",\n        shape: \"ring\",\n        text: \"指令超時已丟棄\"\n      });\n\n      // 觸發下一筆\n      node.send([null, { payload: { trigger: true, reason: \"timeout\" } }]);\n    }\n  }, TIMEOUT_MS);\n\n  flow.set(\"currentTimeout\", timer);\n}\n\n// === 送出第一筆並掛 Timeout ===\narmTimeout(outMsg);\nreturn [outMsg, null];",
         "outputs": 2,
         "timeout": "",
         "noerr": 0,
         "initialize": "// 部署節點後，此處添加的代碼將運行一次。 \n// 部署初始化：自動清空 queue & 解鎖，避免部署後卡死\nglobal.set(\"commandsQueue\", []);\nglobal.set(\"waitingReply\", false);\nflow.set(\"currentCmd\", null);\nflow.set(\"currentTimeout\", null);\n\nnode.status({ fill: \"grey\", shape: \"ring\", text: \"部署後已重置\" });",
-        "finalize": "// 節點正在停止或重新部署時，將運行此處添加的代碼。 \n// 停止或重新部署時清掉計時器\nconst t = flow.get(\"currentTimeout\");\nif (t) {\n    clearTimeout(t);\n}\nflow.set(\"currentTimeout\", null);",
+        "finalize": "// 節點正在停止或重新部署時，將運行此處添加的代碼。 \n// 停止或重新部署時清掉計時器\n\nconst t = flow.get(\"currentTimeout\");\nif (t) {\n    clearTimeout(t);\n}\nflow.set(\"currentTimeout\", null);\n\nglobal.set(\"commandsQueue\", []);\nglobal.set(\"waitingReply\", false);\nflow.set(\"currentCmd\", null);",
         "libs": [],
-        "x": 1490,
+        "x": 1510,
         "y": 940,
         "wires": [
             [
                 "12520c8349ebc8f6",
-                "70690d0b89457617"
+                "8bcf34a93310e225"
             ],
             [
                 "0544c0e13fe478be"
@@ -875,7 +929,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2520,
+        "x": 2720,
         "y": 980,
         "wires": [
             [
@@ -897,7 +951,7 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 990,
+        "x": 980,
         "y": 120,
         "wires": [
             [
@@ -1019,7 +1073,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "33ade9d7c645295d",
         "name": "Discovery climate MQTT",
-        "func": "// 空調設備配置生成器\n// 支援: HVAC 空調控制\n\n// ============ 空調設備定義 ============\nlet devices = [\n    { path: \"hitachi/200/1\", name: \"客廳空調\" },\n    { path: \"hitachi/200/2\", name: \"會議室空調\" },\n    { path: \"hitachi/200/3\", name: \"玄關空調\" },\n    { path: \"hitachi/200/9\", name: \"辦公室測試\" },\n];\n\n// ============ 註冊/清除邏輯 ============\nlet msgs = devices.map(dev => {\n    let uid = dev.path.replace(\"/\", \"_\");\n    let topic = `homeassistant/climate/${uid}/config`;\n    let payload;\n\n    if (msg.action === \"clear\") {\n        payload = \"\";\n    } else if (msg.action === \"add\") {\n        payload = {\n            name: dev.name,\n            unique_id: uid,\n            modes: [\"off\", \"cool\", \"heat\", \"dry\", \"fan_only\", \"auto\"],\n            mode_command_topic: `homeassistant/hvac/${dev.path}/mode/set`,\n            mode_state_topic: `homeassistant/hvac/${dev.path}/mode/state`,\n            temperature_command_topic: `homeassistant/hvac/${dev.path}/temperature/set`,\n            temperature_state_topic: `homeassistant/hvac/${dev.path}/temperature/state`,\n            min_temp: 16,\n            max_temp: 30,\n            temp_step: 1,\n            current_temperature_topic: `homeassistant/hvac/${dev.path}/current_temperature`,\n            fan_modes: [\"auto\", \"low\", \"medium\", \"high\"],\n            fan_mode_command_topic: `homeassistant/hvac/${dev.path}/fan/set`,\n            fan_mode_state_topic: `homeassistant/hvac/${dev.path}/fan/state`,\n            retain: true,\n            optimistic: true\n        };\n        payload = JSON.stringify(payload);\n    }\n\n    return { topic, payload, retain: true };\n});\n\nreturn [msgs];\n",
+        "func": "// 空調設備配置生成器\n// 支援: HVAC 空調控制\n\n// ============ 空調設備定義 ============\nlet devices = [\n    { path: \"hitachi/200/1\", name: \"客廳空調\" },\n    { path: \"hitachi/200/2\", name: \"會議室空調\" },\n    { path: \"hitachi/200/3\", name: \"玄關空調\" },\n    { path: \"hitachi/200/9\", name: \"辦公室測試\" },\n];\n\n// ============ 註冊/清除邏輯 ============\nlet msgs = devices.map(dev => {\n    let uid = dev.path.replace(\"/\", \"_\");\n    let topic = `homeassistant/climate/${uid}/config`;\n    let payload;\n\n    if (msg.action === \"clear\") {\n        payload = \"\";\n    } else if (msg.action === \"add\") {\n        payload = {\n            name: dev.name,\n            unique_id: uid,\n            modes: [\"off\", \"cool\", \"heat\", \"dry\", \"fan_only\", \"auto\"],\n            mode_command_topic: `homeassistant/hvac/${dev.path}/mode/set`,\n            mode_state_topic: `homeassistant/hvac/${dev.path}/mode/state`,\n            temperature_command_topic: `homeassistant/hvac/${dev.path}/temperature/set`,\n            temperature_state_topic: `homeassistant/hvac/${dev.path}/temperature/state`,\n            min_temp: 16,\n            max_temp: 30,\n            temp_step: 1,\n            current_temperature_topic: `homeassistant/hvac/${dev.path}/current_temperature`,\n            fan_modes: [\"auto\", \"low\", \"medium\", \"high\"],\n            fan_mode_command_topic: `homeassistant/hvac/${dev.path}/fan/set`,\n            fan_mode_state_topic: `homeassistant/hvac/${dev.path}/fan/state`,\n            retain: false,\n            optimistic: true\n        };\n        payload = JSON.stringify(payload);\n    }\n\n    return { topic, payload, retain: false };\n});\n\nreturn [msgs];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1483,7 +1537,7 @@
         "complete": "false",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2860,
+        "x": 3060,
         "y": 1040,
         "wires": []
     },
@@ -1493,7 +1547,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "33ade9d7c645295d",
         "name": "Discovery lights MQTT",
-        "func": "/**\n * 命名規則：\n * relay_id_channel  → 例如 relay_11_1\n * single_id_channel → 例如 single_11_2\n * dual_id_channel   → 例如 dual_12_a、dual_12_b\n */\n\nlet devices = [\n    // 盤A\n    { path: \"single/11/1\", name: \"走廊間照\" },\n    { path: \"single/12/1\", name: \"泡茶區\" },\n    { path: \"single/12/2\", name: \"走道崁燈/地間照\" },\n    { path: \"single/12/3\", name: \"展示櫃\" },\n    { path: \"single/13/1\", name: \"會議間照\" },\n    { path: \"single/13/2\", name: \"冷氣間照\" },\n    { path: \"single/13/3\", name: \"會議崁燈\" },\n    { path: \"dual/14/a\", name: \"軌道燈\" },\n    { path: \"dual/14/b\", name: \"吊燈\" },\n    // 盤B\n    { path: \"single/15/1\", name: \"客廳前\" },\n    { path: \"single/15/2\", name: \"客廳後\" },\n    { path: \"single/16/1\", name: \"走道間照\" },\n    { path: \"single/17/1\", name: \"廚房\" },\n    { path: \"single/18/1\", name: \"1F地燈\" },\n    { path: \"single/18/2\", name: \"1F壁燈\" },\n    { path: \"single/19/1\", name: \"2F壁燈\" },\n    { path: \"single/19/2\", name: \"2F地燈\" },\n];\n\nlet msgs;\n\nif (msg.action === \"clear\") {\n    // 強制全部清除\n    msgs = devices.map(dev => {\n        let uid = dev.path.replaceAll(\"/\", \"_\");\n        return {\n            topic: `homeassistant/light/${uid}/config`,\n            payload: \"\",\n            retain: true\n        };\n    });\n} else if (msg.action === \"add\") {\n    // 原本 add 的流程\n    msgs = devices.map(dev => {\n        let uid = dev.path.replaceAll(\"/\", \"_\");\n        let topic = `homeassistant/light/${uid}/config`;\n        let basePayload = {\n            name: dev.name,\n            unique_id: uid,\n            object_id: uid,\n            payload_on: \"ON\",\n            payload_off: \"OFF\",\n            optimistic: true,\n            state_topic: `homeassistant/light/${dev.path}/state`,\n            command_topic: `homeassistant/light/${dev.path}/set`\n        };\n\n        if (dev.path.startsWith(\"single/\")) {\n            basePayload.brightness = true;\n            basePayload.brightness_state_topic = `homeassistant/light/${dev.path}/brightness`;\n            basePayload.brightness_command_topic = `homeassistant/light/${dev.path}/set/brightness`;\n            basePayload.brightness_scale = 100;\n        } else if (dev.path.startsWith(\"dual/\")) {\n            basePayload.brightness = true;\n            basePayload.brightness_state_topic = `homeassistant/light/${dev.path}/brightness`;\n            basePayload.brightness_command_topic = `homeassistant/light/${dev.path}/set/brightness`;\n            basePayload.brightness_scale = 100;\n            basePayload.color_temp_state_topic = `homeassistant/light/${dev.path}/colortemp`;\n            basePayload.color_temp_command_topic = `homeassistant/light/${dev.path}/set/colortemp`;\n            basePayload.min_mireds = 154;  // 6500K\n            basePayload.max_mireds = 370;  // 2700K\n        }\n\n        return {\n            topic,\n            payload: JSON.stringify(basePayload),\n            retain: true\n        };\n    });\n}\n\nreturn [msgs];\n",
+        "func": "/**\n * 命名規則：\n * relay_id_channel  → 例如 relay_11_1\n * single_id_channel → 例如 single_11_2\n * dual_id_channel   → 例如 dual_12_a、dual_12_b\n */\n\nlet devices = [\n    // 盤A\n    { path: \"single/11/1\", name: \"走廊間照\" },\n    { path: \"single/12/1\", name: \"泡茶區\" },\n    { path: \"single/12/2\", name: \"走道崁燈/地間照\" },\n    { path: \"single/12/3\", name: \"展示櫃\" },\n    { path: \"single/13/1\", name: \"會議間照\" },\n    { path: \"single/13/2\", name: \"冷氣間照\" },\n    { path: \"single/13/3\", name: \"會議崁燈\" },\n    { path: \"dual/14/a\", name: \"軌道燈\" },\n    { path: \"dual/14/b\", name: \"吊燈\" },\n    // 盤B\n    { path: \"single/15/1\", name: \"客廳前\" },\n    { path: \"single/15/2\", name: \"客廳後\" },\n    { path: \"single/16/1\", name: \"走道間照\" },\n    { path: \"single/17/1\", name: \"廚房\" },\n    { path: \"single/18/1\", name: \"1F地燈\" },\n    { path: \"single/18/2\", name: \"1F壁燈\" },\n    { path: \"single/19/1\", name: \"2F壁燈\" },\n    { path: \"single/19/2\", name: \"2F地燈\" },\n];\n\nlet msgs;\n\nif (msg.action === \"clear\") {\n    // 強制全部清除\n    msgs = devices.map(dev => {\n        let uid = dev.path.replaceAll(\"/\", \"_\");\n        return {\n            topic: `homeassistant/light/${uid}/config`,\n            payload: \"\",\n            retain: false,\n        };\n    });\n} else if (msg.action === \"add\") {\n    // 原本 add 的流程\n    msgs = devices.map(dev => {\n        let uid = dev.path.replaceAll(\"/\", \"_\");\n        let topic = `homeassistant/light/${uid}/config`;\n        let basePayload = {\n            name: dev.name,\n            unique_id: uid,\n            object_id: uid,\n            payload_on: \"ON\",\n            payload_off: \"OFF\",\n            optimistic: true,\n            state_topic: `homeassistant/light/${dev.path}/state`,\n            command_topic: `homeassistant/light/${dev.path}/set`\n        };\n\n        if (dev.path.startsWith(\"single/\")) {\n            basePayload.brightness = true;\n            basePayload.brightness_state_topic = `homeassistant/light/${dev.path}/brightness`;\n            basePayload.brightness_command_topic = `homeassistant/light/${dev.path}/set/brightness`;\n            basePayload.brightness_scale = 100;\n        } else if (dev.path.startsWith(\"dual/\")) {\n            basePayload.brightness = true;\n            basePayload.brightness_state_topic = `homeassistant/light/${dev.path}/brightness`;\n            basePayload.brightness_command_topic = `homeassistant/light/${dev.path}/set/brightness`;\n            basePayload.brightness_scale = 100;\n            basePayload.color_temp_state_topic = `homeassistant/light/${dev.path}/colortemp`;\n            basePayload.color_temp_command_topic = `homeassistant/light/${dev.path}/set/colortemp`;\n            basePayload.min_mireds = 154;  // 6500K\n            basePayload.max_mireds = 370;  // 2700K\n        }\n\n        return {\n            topic,\n            payload: JSON.stringify(basePayload),\n            retain: false\n        };\n    });\n}\n\nreturn [msgs];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1595,7 +1649,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "33ade9d7c645295d",
         "name": "discovery cover MQTT",
-        "func": "// 窗簾/捲簾設備配置生成器\n// 支援: 窗簾(curtain), 捲簾, 排煙窗\n\n// ============ 窗簾設備定義 ============\nlet covers = [\n    { path: \"curtain/21/1-2-3\", name: \"鐵捲門\" },\n    { path: \"curtain/22/1-2\", name: \"會議室捲簾\" },\n    { path: \"curtain/23/1-2\", name: \"布簾\" },\n    { path: \"curtain/23/3-4\", name: \"沙簾\" },\n    { path: \"curtain/23/5-6-7\", name: \"排煙窗\" },\n];\n\n\n// ============ 註冊/清除邏輯 ============\nlet msgs;\n\nif (msg.action === \"clear\") {\n    // 強制全部清除\n    msgs = covers.map(cover => {\n        let uid = cover.path.replace(/\\//g, \"_\");\n        return {\n            topic: `homeassistant/cover/${uid}/config`,\n            payload: \"\",\n            retain: true\n        };\n    });\n} else if (msg.action === \"add\") {\n    // 新增註冊\n    msgs = covers.map(cover => {\n        let uid = cover.path.replace(/\\//g, \"_\");\n        let part = cover.path.split(\"/\");\n        let device_type = part[0];\n        let id = part[1];\n        let control = (part[2]).split(\"-\");\n\n        let basePayload = {\n            name: cover.name,\n            unique_id: uid,\n            optimistic: true,\n            retain: true\n        };\n\n        let operation_type;\n        switch (control.length) {\n            case 2: {\n                operation_type = \"oc\";\n                basePayload.payload_open = `${control[0]}/${control[1]}`;\n                basePayload.payload_close = `${control[1]}/${control[0]}`;\n                basePayload.payload_stop = `${control[0]}_${control[1]}/`;\n                break;\n            }\n            case 3: {\n                operation_type = \"ocs\";\n                basePayload.payload_open = `${control[0]}/${control[1]}_${control[2]}`;\n                basePayload.payload_close = `${control[1]}/${control[0]}_${control[2]}`;\n                basePayload.payload_stop = `${control[2]}/${control[0]}_${control[1]}`;\n                break;\n            }\n            default: {\n                node.warn(\"Unknown type of curtain\");\n                break;\n            }\n        }\n\n        basePayload.command_topic = `homeassistant/cover/${device_type}/${id}/${operation_type}/set`;\n        basePayload.state_topic = `homeassistant/cover/${device_type}/${id}/${operation_type}/state`;\n\n        return {\n            topic: `homeassistant/cover/${uid}/config`,\n            payload: JSON.stringify(basePayload),\n            retain: true\n        };\n    });\n}\n\nreturn [msgs];\n",
+        "func": "// 窗簾/捲簾設備配置生成器\n// 支援: 窗簾(curtain), 捲簾, 排煙窗\n\n// ============ 窗簾設備定義 ============\nlet covers = [\n    { path: \"curtain/21/1-2-3\", name: \"鐵捲門\" },\n    { path: \"curtain/22/1-2\", name: \"會議室捲簾\" },\n    { path: \"curtain/23/1-2\", name: \"布簾\" },\n    { path: \"curtain/23/3-4\", name: \"沙簾\" },\n    { path: \"curtain/23/5-6-7\", name: \"排煙窗\" },\n];\n\n\n// ============ 註冊/清除邏輯 ============\nlet msgs;\n\nif (msg.action === \"clear\") {\n    // 強制全部清除\n    msgs = covers.map(cover => {\n        let uid = cover.path.replace(/\\//g, \"_\");\n        return {\n            topic: `homeassistant/cover/${uid}/config`,\n            payload: \"\",\n            retain: false\n        };\n    });\n} else if (msg.action === \"add\") {\n    // 新增註冊\n    msgs = covers.map(cover => {\n        let uid = cover.path.replace(/\\//g, \"_\");\n        let part = cover.path.split(\"/\");\n        let device_type = part[0];\n        let id = part[1];\n        let control = (part[2]).split(\"-\");\n\n        let basePayload = {\n            name: cover.name,\n            unique_id: uid,\n            optimistic: true,\n            retain: false\n        };\n\n        let operation_type;\n        switch (control.length) {\n            case 2: {\n                operation_type = \"oc\";\n                basePayload.payload_open = `${control[0]}/${control[1]}`;\n                basePayload.payload_close = `${control[1]}/${control[0]}`;\n                basePayload.payload_stop = `${control[0]}_${control[1]}/`;\n                break;\n            }\n            case 3: {\n                operation_type = \"ocs\";\n                basePayload.payload_open = `${control[0]}/${control[1]}_${control[2]}`;\n                basePayload.payload_close = `${control[1]}/${control[0]}_${control[2]}`;\n                basePayload.payload_stop = `${control[2]}/${control[0]}_${control[1]}`;\n                break;\n            }\n            default: {\n                node.warn(\"Unknown type of curtain\");\n                break;\n            }\n        }\n\n        basePayload.command_topic = `homeassistant/cover/${device_type}/${id}/${operation_type}/set`;\n        basePayload.state_topic = `homeassistant/cover/${device_type}/${id}/${operation_type}/state`;\n\n        return {\n            topic: `homeassistant/cover/${uid}/config`,\n            payload: JSON.stringify(basePayload),\n        };\n    });\n}\n\nreturn [msgs];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1823,21 +1877,21 @@
         "id": "ba4394f96634d43c",
         "type": "tcp request",
         "z": "8dc927f2ab7dee3c",
-        "g": "2d93e84dbc762f21",
+        "g": "81f07a968c7807da",
         "name": "",
-        "server": "192.168.1.208",
-        "port": "502",
+        "server": "192.168.1.219",
+        "port": "1030",
         "out": "time",
         "ret": "buffer",
         "splitc": "0",
         "newline": "",
         "trim": false,
         "tls": "",
-        "x": 1820,
-        "y": 920,
+        "x": 2010,
+        "y": 940,
         "wires": [
             [
-                "2cb5d87046cf4e48"
+                "5f6f957295b47d82"
             ]
         ]
     },
@@ -1845,18 +1899,18 @@
         "id": "9008d6f89255fd25",
         "type": "tcp request",
         "z": "8dc927f2ab7dee3c",
-        "g": "2d93e84dbc762f21",
+        "g": "37db5abb5a3ef2b6",
         "name": "",
-        "server": "192.168.1.204",
-        "port": "502",
+        "server": "192.168.1.209",
+        "port": "1030",
         "out": "time",
         "ret": "buffer",
         "splitc": "0",
         "newline": "",
         "trim": false,
         "tls": "",
-        "x": 1820,
-        "y": 960,
+        "x": 1990,
+        "y": 880,
         "wires": [
             [
                 "2cb5d87046cf4e48"
@@ -1954,7 +2008,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "8150787aaa7b18c0",
         "name": "debug 2",
-        "active": false,
+        "active": true,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -2021,7 +2075,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2530,
+        "x": 2730,
         "y": 940,
         "wires": [
             [
@@ -2042,7 +2096,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2360,
+        "x": 2560,
         "y": 940,
         "wires": [
             [
@@ -2063,7 +2117,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2520,
+        "x": 2720,
         "y": 1020,
         "wires": [
             [
@@ -2192,7 +2246,7 @@
         "z": "8dc927f2ab7dee3c",
         "g": "c0fc12864140dc9d",
         "name": "",
-        "active": false,
+        "active": true,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -2200,7 +2254,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 735,
+        "x": 725,
         "y": 680,
         "wires": [],
         "l": false
@@ -2239,7 +2293,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2520,
+        "x": 2720,
         "y": 1060,
         "wires": [
             [
@@ -2254,8 +2308,8 @@
         "g": "1054b9ebf82dca49",
         "name": "",
         "server": "client",
-        "host": "192.168.1.208",
-        "port": "502",
+        "host": "192.168.1.209",
+        "port": "1030",
         "datamode": "stream",
         "datatype": "buffer",
         "newline": "",
@@ -2263,11 +2317,57 @@
         "trim": false,
         "base64": false,
         "tls": "",
-        "x": 2320,
+        "x": 2520,
         "y": 1060,
         "wires": [
             [
                 "90edd330fe6e2910"
+            ]
+        ]
+    },
+    {
+        "id": "8bcf34a93310e225",
+        "type": "function",
+        "z": "8dc927f2ab7dee3c",
+        "g": "2d93e84dbc762f21",
+        "name": "modbus指令分流",
+        "func": "//port1:冷氣指令\n//port2:其他指令\nif ((msg.payload)[0] == \"200\") {\n    return [msg, null]\n}\nelse {\n    return [null, msg]\n}\n\n\nreturn msg;",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1710,
+        "y": 940,
+        "wires": [
+            [
+                "9008d6f89255fd25"
+            ],
+            [
+                "de75cc0c82bb599c"
+            ]
+        ]
+    },
+    {
+        "id": "e03c4bafb2cdf6d4",
+        "type": "tcp request",
+        "z": "8dc927f2ab7dee3c",
+        "g": "81f07a968c7807da",
+        "name": "",
+        "server": "192.168.1.229",
+        "port": "1030",
+        "out": "time",
+        "ret": "buffer",
+        "splitc": "0",
+        "newline": "",
+        "trim": false,
+        "tls": "",
+        "x": 2010,
+        "y": 980,
+        "wires": [
+            [
+                "5f6f957295b47d82"
             ]
         ]
     },
