@@ -1,6 +1,12 @@
 /**
- * 單色溫（single）控制：產生 Modbus 指令（含 CRC16）
+ * 單色溫（single）控制：產生 Modbus 指令（不含 CRC）
  * 支援 payload = { "state": "ON" | "OFF", "brightness": number }
+ *
+ * 輸出：
+ *   msg.payload = Buffer (不含 CRC 的 Modbus 指令)
+ *
+ * 使用方式：
+ *   請串接 crc_builder 節點處理 CRC
  */
 
 const DEFAULT_BRIGHTNESS = 100;
@@ -13,19 +19,7 @@ const CHANNEL_REGISTER_MAP = {
     "4": 0x082D
 };
 
-/* ------------------------ CRC-16 MODBUS ------------------------ */
-function crc16(buf) {
-    let crc = 0xFFFF;
-    for (const b of buf) {
-        crc ^= b;
-        for (let i = 0; i < 8; i++) {
-            crc = (crc & 1)
-                ? ((crc >> 1) ^ 0xA001)
-                : (crc >> 1);
-        }
-    }
-    return crc;
-}
+// ...existing code...
 
 /* ========================== 主流程 =========================== */
 const topic = String(msg.topic || "");
@@ -98,14 +92,6 @@ const cmd = Buffer.from([
     value
 ]);
 
-/* ------------------------ 加 CRC ------------------------ */
-const crc = crc16(cmd);
-const crcLow = crc & 0xFF;
-const crcHigh = (crc >> 8) & 0xFF;
-
-msg.payload = Buffer.concat([
-    cmd,
-    Buffer.from([crcLow, crcHigh])
-]);
-
+// 只輸出不含 CRC 的 Modbus 指令
+msg.payload = cmd;
 return msg;
