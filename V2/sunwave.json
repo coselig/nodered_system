@@ -2,7 +2,7 @@
     {
         "id": "79859e535099be0e",
         "type": "tab",
-        "label": "森閣v2",
+        "label": "公版v2.0.1",
         "disabled": false,
         "info": "",
         "env": []
@@ -250,8 +250,8 @@
             "1c5a90ffab54229c",
             "489e84f129e98e9d"
         ],
-        "x": 24,
-        "y": 919,
+        "x": 44,
+        "y": 1039,
         "w": 432,
         "h": 122
     },
@@ -287,7 +287,7 @@
             "6f5bfe91ac316558"
         ],
         "x": 34,
-        "y": 759,
+        "y": 899,
         "w": 592,
         "h": 122
     },
@@ -1899,8 +1899,8 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 105,
-        "y": 960,
+        "x": 125,
+        "y": 1080,
         "wires": [
             [
                 "1c5a90ffab54229c"
@@ -1922,8 +1922,8 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 65,
-        "y": 980,
+        "x": 85,
+        "y": 1100,
         "wires": [
             [
                 "1c5a90ffab54229c"
@@ -1946,8 +1946,8 @@
         "correl": "",
         "expiry": "",
         "broker": "751ec40a6956d4f9",
-        "x": 365,
-        "y": 980,
+        "x": 385,
+        "y": 1100,
         "wires": [],
         "l": false
     },
@@ -1965,8 +1965,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 395,
-        "y": 980,
+        "x": 415,
+        "y": 1100,
         "wires": [],
         "l": false
     },
@@ -2089,8 +2089,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 270,
-        "y": 980,
+        "x": 290,
+        "y": 1100,
         "wires": [
             [
                 "27a7dd6e9d9fdae8",
@@ -2115,8 +2115,8 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 105,
-        "y": 1000,
+        "x": 125,
+        "y": 1120,
         "wires": [
             [
                 "1c5a90ffab54229c"
@@ -2138,7 +2138,7 @@
         "finalize": "",
         "libs": [],
         "x": 420,
-        "y": 820,
+        "y": 960,
         "wires": [
             [
                 "6f5bfe91ac316558",
@@ -2164,7 +2164,7 @@
         "rh": 0,
         "inputs": 0,
         "x": 180,
-        "y": 820,
+        "y": 960,
         "wires": [
             [
                 "5c535193a21eb19a"
@@ -2187,7 +2187,7 @@
         "expiry": "",
         "broker": "751ec40a6956d4f9",
         "x": 565,
-        "y": 840,
+        "y": 980,
         "wires": [],
         "l": false
     },
@@ -2206,7 +2206,7 @@
         "statusVal": "",
         "statusType": "auto",
         "x": 565,
-        "y": 800,
+        "y": 940,
         "wires": [],
         "l": false
     },
@@ -2391,7 +2391,7 @@
         "z": "79859e535099be0e",
         "g": "745e6c0bc5655ed6",
         "name": "command(rgb)new",
-        "func": "/**\n * RGB 調光燈（rgb_dimmer）控制：產生 Modbus 指令（不含 CRC）\n * 支援 payload = { \"state\": \"ON\" | \"OFF\", \"brightness\": number, \"rgb\": \"R,G,B\" }\n *\n * 輸出：\n *   msg.payload = Buffer (不含 CRC 的 Modbus 指令)\n *\n * 使用方式：\n *   請串接 crc_builder 節點處理 CRC\n */\n\nconst DEFAULT_BRIGHTNESS = 100;\nconst DEFAULT_RGB = \"255,255,255\"; // 預設白光\nconst BRIGHTNESS_TIME = 0x05;\n\nconst CHANNEL_REGISTER_MAP = {\n    \"x\": 0x0829,\n};\n\n// ========================== 主流程 ===========================\nconst topic = String(msg.topic || \"\");\nconst parts = topic.split(\"/\");\n\nnode.status({fill:\"red\",shape:\"ring\",text:`${topic}`});\n\n// 支援 homeassistant/light/rgb/+/+/set (允許多於6段)\nif (parts.length < 6) return null;\nif (parts[0] !== \"homeassistant\") return null;\nif (parts[1] !== \"light\") return null;\nif (parts[2] !== \"rgb\") return null;\nif (parts[5] !== \"set\") return null;\n\nconst slaveId = Number(parts[3]);\nconst channel = parts[4];\nif (!Number.isInteger(slaveId) || slaveId <= 0) return null;\nconst reg = CHANNEL_REGISTER_MAP[channel];\nif (!reg) return null;\n\n// ------------------------ 解析 payload ------------------------\nlet isOn = false;\nlet brightnessFromPayload = null;\nlet rgbFromPayload = null;\n\nif (typeof msg.payload === \"object\" && msg.payload !== null) {\n    // JSON 格式 {\"state\":\"ON\",\"brightness\":112,\"rgb\":\"255,128,0\"}\n    if (typeof msg.payload.state === \"string\") {\n        isOn = (msg.payload.state.toUpperCase() === \"ON\");\n    }\n    if (typeof msg.payload.brightness === \"number\") {\n        brightnessFromPayload = msg.payload.brightness;\n    }\n    if (typeof msg.payload.rgb === \"string\") {\n        rgbFromPayload = msg.payload.rgb;\n    }\n} else if (typeof msg.payload === \"string\") {\n    isOn = (msg.payload.toUpperCase() === \"ON\");\n} else if (typeof msg.payload === \"boolean\") {\n    isOn = msg.payload;\n}\n\n// ------------------------ 亮度與顏色快取 ------------------------\nconst brightnessKey = `rgb_${slaveId}_${channel}_brightness`;\nconst rgbKey = `rgb_${slaveId}_${channel}_rgb`;\n\nlet useBrightness = null;\nlet useRgb = null;\n\nif (typeof brightnessFromPayload === \"number\") {\n    useBrightness = Math.round(brightnessFromPayload);\n    flow.set(brightnessKey, useBrightness);\n} else {\n    useBrightness = flow.get(brightnessKey);\n    if (typeof useBrightness !== \"number\") {\n        useBrightness = DEFAULT_BRIGHTNESS;\n    }\n}\nuseBrightness = Math.min(100, Math.max(0, useBrightness));\n\nif (typeof rgbFromPayload === \"string\") {\n    useRgb = rgbFromPayload;\n    flow.set(rgbKey, useRgb);\n} else {\n    useRgb = flow.get(rgbKey);\n    if (typeof useRgb !== \"string\") {\n        useRgb = DEFAULT_RGB;\n    }\n}\n\n// ------------------------ RGB 亮度計算 ------------------------\nfunction parseRgb(str) {\n    const arr = String(str).split(\",\").map(x => parseInt(x, 10));\n    return {\n        r: Math.max(0, Math.min(255, arr[0] || 0)),\n        g: Math.max(0, Math.min(255, arr[1] || 0)),\n        b: Math.max(0, Math.min(255, arr[2] || 0))\n    };\n}\n\nfunction rgbToBrightness(r, g, b, brightness) {\n    const total = r + g + b;\n    if (total === 0) {\n        const avg = Math.round(brightness / 3);\n        return { r: avg, g: avg, b: avg };\n    }\n    // 亮度最小值映射 (13-100)\n    const minLevel = 13;\n    const maxLevel = 100;\n    const mappedBrightness = Math.round(minLevel + (brightness / 100) * (maxLevel - minLevel));\n    return {\n        r: Math.round(mappedBrightness * r / total),\n        g: Math.round(mappedBrightness * g / total),\n        b: Math.round(mappedBrightness * b / total)\n    };\n}\n\nconst { r: r_ha, g: g_ha, b: b_ha } = parseRgb(useRgb);\nlet r, g, b;\nif (!isOn) {\n    r = g = b = 0;\n} else {\n    const rgb = rgbToBrightness(r_ha, g_ha, b_ha, useBrightness);\n    r = rgb.r;\n    g = rgb.g;\n    b = rgb.b;\n}\n\n// ------------------------ 組 Modbus 指令 ------------------------\nconst hi = (reg >> 8) & 0xFF;\nconst lo = reg & 0xFF;\n\nconst cmd = Buffer.from([\n    slaveId,\n    0x10, // function code for write multiple registers\n    hi,\n    lo,\n    BRIGHTNESS_TIME,\n    r,\n    g,\n    b,\n    0x00 // 填充\n]);\n\nmsg.payload = cmd;\nreturn msg;\n",
+        "func": "/**\n * RGB 調光燈（rgb_dimmer）控制：產生 Modbus 指令（不含 CRC）\n * 支援 payload = { \"state\": \"ON\" | \"OFF\", \"brightness\": number, \"rgb\": \"R,G,B\" }\n *\n * 輸出：\n *   msg.payload = Buffer (不含 CRC 的 Modbus 指令)\n *\n * 使用方式：\n *   請串接 crc_builder 節點處理 CRC\n */\n\nconst DEFAULT_BRIGHTNESS = 100;\nconst DEFAULT_RGB = \"255,255,255\"; // 預設白光\nconst BRIGHTNESS_TIME = 0x05;\n\nconst CHANNEL_REGISTER_MAP = {\n    \"x\": 0x0829,\n};\n\n// ========================== 主流程 ===========================\nconst topic = String(msg.topic || \"\");\nconst parts = topic.split(\"/\");\n\n// 支援 homeassistant/light/rgb/+/+/set (允許多於6段)\nif (parts.length < 6) return null;\nif (parts[0] !== \"homeassistant\") return null;\nif (parts[1] !== \"light\") return null;\nif (parts[2] !== \"rgb\") return null;\nif (parts[5] !== \"set\") return null;\n\nconst slaveId = Number(parts[3]);\nconst channel = parts[4];\nif (!Number.isInteger(slaveId) || slaveId <= 0) return null;\nconst reg = CHANNEL_REGISTER_MAP[channel];\nif (!reg) return null;\n\n// ------------------------ 解析 payload ------------------------\n\n\n\n// ------------------------ 亮度與顏色快取 ------------------------\n\nlet minLevel = 13;  // 你設定的最低亮度\nlet maxLevel = 100; // 最大亮度\n\nlet rawBrightness = flow.get(`rgb_${slaveId}_brightness`);\nlet brightness = Math.round(minLevel + (rawBrightness / 100) * (maxLevel - minLevel));\n\nlet rawRGB = flow.get(`rgb_${slaveId}_rgb`);\n\n\nconst rgbArray = (rawRGB.split(\",\")).map(val => parseInt(val.trim(), 10));\nlet [r_ha, g_ha, b_ha] = rgbArray;\n\nnode.status({ fill: \"red\", shape: \"ring\", text: `${r_ha},${g_ha},${b_ha}`});\n// 使用解構賦值快速取得 R, G, B\nlet redBrightness = Math.round(brightness * r_ha / (r_ha + g_ha + b_ha));\nlet greenBrightness = Math.round(brightness * g_ha / (r_ha + g_ha + b_ha));\nlet blueBrightness = Math.round(brightness * b_ha / (r_ha + g_ha + b_ha));\n\nlet r, g, b;\n\n\nif (msg.payload == \"OFF\") {\n    r = g = b = 0;\n}\nelse {\n    r = redBrightness;\n    g = greenBrightness;\n    b = blueBrightness;\n};\n\n\nconst cmd = Buffer.from([\n    slaveId,\n    0x10,\n    0x08,\n    0x29,\n    0x00,\n    0x02,\n    0x04,\n    r,\n    g,\n    b,\n    0x00,\n]);\n\nmsg.payload = cmd;\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2412,7 +2412,7 @@
         "z": "79859e535099be0e",
         "g": "f6abec360d64a7b8",
         "name": "",
-        "topic": "homeassistant/light/rgb/+/set/rgb",
+        "topic": "homeassistant/light/rgb/+/+/set/rgb",
         "qos": "2",
         "datatype": "auto-detect",
         "broker": "751ec40a6956d4f9",
@@ -2420,7 +2420,7 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 1050,
+        "x": 1060,
         "y": 320,
         "wires": [
             [
@@ -2451,7 +2451,7 @@
         "z": "79859e535099be0e",
         "g": "f6abec360d64a7b8",
         "name": "",
-        "topic": "homeassistant/light/rgb/+/set/brightness",
+        "topic": "homeassistant/light/rgb/+/+/set/brightness",
         "qos": "2",
         "datatype": "auto-detect",
         "broker": "751ec40a6956d4f9",
@@ -2459,7 +2459,7 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 1070,
+        "x": 1080,
         "y": 260,
         "wires": [
             [

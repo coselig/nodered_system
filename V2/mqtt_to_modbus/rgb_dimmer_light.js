@@ -14,10 +14,7 @@ const DEFAULT_RGB = "255,255,255"; // 預設白光
 const BRIGHTNESS_TIME = 0x05;
 
 const CHANNEL_REGISTER_MAP = {
-    "1": 0x0830,
-    "2": 0x0834,
-    "3": 0x0838,
-    "4": 0x083C
+    "x": 0x0829,
 };
 
 // ========================== 主流程 ===========================
@@ -38,107 +35,54 @@ const reg = CHANNEL_REGISTER_MAP[channel];
 if (!reg) return null;
 
 // ------------------------ 解析 payload ------------------------
-let isOn = false;
-let brightnessFromPayload = null;
-let rgbFromPayload = null;
 
-if (typeof msg.payload === "object" && msg.payload !== null) {
-    // JSON 格式 {"state":"ON","brightness":112,"rgb":"255,128,0"}
-    if (typeof msg.payload.state === "string") {
-        isOn = (msg.payload.state.toUpperCase() === "ON");
-    }
-    if (typeof msg.payload.brightness === "number") {
-        brightnessFromPayload = msg.payload.brightness;
-    }
-    if (typeof msg.payload.rgb === "string") {
-        rgbFromPayload = msg.payload.rgb;
-    }
-} else if (typeof msg.payload === "string") {
-    isOn = (msg.payload.toUpperCase() === "ON");
-} else if (typeof msg.payload === "boolean") {
-    isOn = msg.payload;
-}
+
 
 // ------------------------ 亮度與顏色快取 ------------------------
-const brightnessKey = `rgb_${slaveId}_${channel}_brightness`;
-const rgbKey = `rgb_${slaveId}_${channel}_rgb`;
 
-let useBrightness = null;
-let useRgb = null;
+let minLevel = 13;  // 你設定的最低亮度
+let maxLevel = 100; // 最大亮度
 
-if (typeof brightnessFromPayload === "number") {
-    useBrightness = Math.round(brightnessFromPayload);
-    flow.set(brightnessKey, useBrightness);
-} else {
-    useBrightness = flow.get(brightnessKey);
-    if (typeof useBrightness !== "number") {
-        useBrightness = DEFAULT_BRIGHTNESS;
-    }
-}
-useBrightness = Math.min(100, Math.max(0, useBrightness));
+let rawBrightness = flow.get(`rgb_${slaveId}_brightness`);
+let brightness = Math.round(minLevel + (rawBrightness / 100) * (maxLevel - minLevel));
 
-if (typeof rgbFromPayload === "string") {
-    useRgb = rgbFromPayload;
-    flow.set(rgbKey, useRgb);
-} else {
-    useRgb = flow.get(rgbKey);
-    if (typeof useRgb !== "string") {
-        useRgb = DEFAULT_RGB;
-    }
-}
+let rawRGB = flow.get(`rgb_${slaveId}_rgb`);
 
-// ------------------------ RGB 亮度計算 ------------------------
-function parseRgb(str) {
-    const arr = String(str).split(",").map(x => parseInt(x, 10));
-    return {
-        r: Math.max(0, Math.min(255, arr[0] || 0)),
-        g: Math.max(0, Math.min(255, arr[1] || 0)),
-        b: Math.max(0, Math.min(255, arr[2] || 0))
-    };
-}
 
-function rgbToBrightness(r, g, b, brightness) {
-    const total = r + g + b;
-    if (total === 0) {
-        const avg = Math.round(brightness / 3);
-        return { r: avg, g: avg, b: avg };
-    }
-    // 亮度最小值映射 (13-100)
-    const minLevel = 13;
-    const maxLevel = 100;
-    const mappedBrightness = Math.round(minLevel + (brightness / 100) * (maxLevel - minLevel));
-    return {
-        r: Math.round(mappedBrightness * r / total),
-        g: Math.round(mappedBrightness * g / total),
-        b: Math.round(mappedBrightness * b / total)
-    };
-}
+const rgbArray = (rawRGB.split(",")).map(val => parseInt(val.trim(), 10));
+let [r_ha, g_ha, b_ha] = rgbArray;
 
-const { r: r_ha, g: g_ha, b: b_ha } = parseRgb(useRgb);
+node.status({ fill: "red", shape: "ring", text: `${r_ha},${g_ha},${b_ha}` });
+// 使用解構賦值快速取得 R, G, B
+let redBrightness = Math.round(brightness * r_ha / (r_ha + g_ha + b_ha));
+let greenBrightness = Math.round(brightness * g_ha / (r_ha + g_ha + b_ha));
+let blueBrightness = Math.round(brightness * b_ha / (r_ha + g_ha + b_ha));
+
 let r, g, b;
-if (!isOn) {
-    r = g = b = 0;
-} else {
-    const rgb = rgbToBrightness(r_ha, g_ha, b_ha, useBrightness);
-    r = rgb.r;
-    g = rgb.g;
-    b = rgb.b;
-}
 
-// ------------------------ 組 Modbus 指令 ------------------------
-const hi = (reg >> 8) & 0xFF;
-const lo = reg & 0xFF;
+
+if (msg.payload == "OFF") {
+    r = g = b = 0;
+}
+else {
+    r = redBrightness;
+    g = greenBrightness;
+    b = blueBrightness;
+};
+
 
 const cmd = Buffer.from([
     slaveId,
-    0x10, // function code for write multiple registers
-    hi,
-    lo,
-    BRIGHTNESS_TIME,
+    0x10,
+    0x08,
+    0x29,
+    0x00,
+    0x02,
+    0x04,
     r,
     g,
     b,
-    0x00 // 填充
+    0x00,
 ]);
 
 msg.payload = cmd;
